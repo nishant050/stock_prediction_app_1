@@ -1,0 +1,2225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Prediction Lab v2.0 - Advanced Analysis</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        }
+
+        .gradient-bg {
+            background: radial-gradient(circle at 20% 20%, rgba(16, 185, 129, 0.08), transparent 25%),
+                        radial-gradient(circle at 80% 0%, rgba(59, 130, 246, 0.06), transparent 22%),
+                        linear-gradient(180deg, #0f172a 0%, #0b1223 100%);
+        }
+
+        .card {
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid rgba(148, 163, 184, 0.25);
+            box-shadow: 0 10px 35px rgba(0, 0, 0, 0.45);
+        }
+
+        .pulse-dot {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .checklist-item {
+            transition: all 0.3s ease;
+        }
+        
+        .checklist-item:hover {
+            transform: translateX(5px);
+        }
+        
+        .loading-shimmer {
+            background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+        }
+        
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        
+        .level-line {
+            position: relative;
+        }
+        
+        .level-line::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 50%;
+            height: 1px;
+            background: currentColor;
+            opacity: 0.3;
+        }
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+
+        /* Clickable section headers */
+        .clickable-header {
+            cursor: pointer;
+            transition: all 0.2s ease;
+            padding: 4px 8px;
+            margin: -4px -8px;
+            border-radius: 8px;
+        }
+        .clickable-header:hover {
+            background: rgba(52, 211, 153, 0.1);
+        }
+        .clickable-header::after {
+            content: '\f059';
+            font-family: 'Font Awesome 6 Free';
+            font-weight: 900;
+            font-size: 0.7em;
+            margin-left: 8px;
+            opacity: 0;
+            transition: opacity 0.2s;
+            color: #34d399;
+        }
+        .clickable-header:hover::after {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body class="gradient-bg min-h-screen text-gray-100">
+    <!-- Header -->
+    <header class="border-b border-slate-700 bg-slate-900/50 backdrop-blur-sm sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-500 to-cyan-500 flex items-center justify-center">
+                        <i class="fas fa-chart-line text-white"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold">Stock Prediction Lab</h1>
+                        <p class="text-xs text-slate-400">v2.0 - Advanced Multi-Factor Analysis</p>
+                    </div>
+                </div>
+                
+                <div class="flex items-center gap-4">
+                    <div id="serverStatus" class="flex items-center gap-2 text-sm">
+                        <span class="w-2 h-2 rounded-full bg-slate-500"></span>
+                        <span class="text-slate-400">Checking...</span>
+                    </div>
+                                <div id="aiErrorBanner" class="hidden text-red-400 ml-4 text-sm"></div>
+                    <button onclick="openSettings()" class="p-2 hover:bg-slate-700 rounded-lg transition">
+                        <i class="fas fa-cog text-slate-400"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 py-6">
+        <!-- Search Bar -->
+        <div class="card rounded-xl p-4 mb-6">
+            <div class="flex gap-3">
+                <div class="flex-1 relative">
+                    <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                    <input type="text" id="symbolInput" 
+                        placeholder="Enter stock symbol (e.g., RELIANCE, TCS, WIPRO)" 
+                        class="w-full bg-slate-800 border border-slate-600 rounded-lg pl-11 pr-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                        onkeypress="if(event.key==='Enter') analyzeStock()">
+                </div>
+                <button onclick="analyzeStock()" 
+                    class="px-6 py-3 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white font-semibold rounded-lg hover:opacity-90 transition flex items-center gap-2">
+                    <i class="fas fa-bolt"></i>
+                    Analyze
+                </button>
+            </div>
+        </div>
+
+        <!-- Today's Picks Section -->
+        <div id="todaysPicksSection" class="card rounded-xl p-5 mb-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold flex items-center gap-2">
+                    <i class="fas fa-fire text-orange-400"></i>
+                    Today's Stock Picks
+                    <span class="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded ml-2">AI Curated</span>
+                </h3>
+                <button onclick="loadTodaysPicks()" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm transition flex items-center gap-2">
+                    <i class="fas fa-sync-alt" id="refreshPicksIcon"></i>
+                    Refresh
+                </button>
+            </div>
+            
+            <!-- Market Status Bar -->
+            <div id="marketStatusBar" class="bg-slate-800/50 rounded-lg p-3 mb-4">
+                <div class="flex items-center justify-between flex-wrap gap-2">
+                    <div class="flex items-center gap-3">
+                        <span class="text-slate-400 text-sm">Market:</span>
+                        <span id="marketStatusBadge" class="px-2 py-1 rounded text-xs font-semibold bg-slate-700">LOADING...</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <span class="text-slate-400 text-sm">Nifty:</span>
+                        <span id="niftyChangeBadge" class="font-semibold">--</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <span class="text-slate-400 text-sm">Sector in Play:</span>
+                        <span id="sectorInPlayBadge" class="text-emerald-400 font-semibold">--</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sector Heatmap -->
+            <div class="mb-4">
+                <p class="text-xs text-slate-500 uppercase mb-2">Sector Performance (Relative to Nifty)</p>
+                <div id="sectorHeatmap" class="flex flex-wrap gap-2">
+                    <div class="loading-shimmer h-8 w-24 rounded"></div>
+                    <div class="loading-shimmer h-8 w-20 rounded"></div>
+                    <div class="loading-shimmer h-8 w-28 rounded"></div>
+                </div>
+                <div id="sectorFilterChip" class="hidden mt-3">
+                    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/15 text-emerald-200 text-xs border border-emerald-500/30">
+                        <span class="uppercase tracking-wide">Filtering</span>
+                        <span id="sectorFilterLabel" class="font-semibold"></span>
+                        <button onclick="clearSectorFilter()" class="text-emerald-100 hover:text-white text-[11px] underline">Clear</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stock Picks Grid -->
+            <div id="stockPicksContainer">
+                <!-- Loading State -->
+                <div id="picksLoadingState" class="py-8 text-center">
+                    <div class="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+                    <p class="text-slate-400">Scanning sectors & screening stocks...</p>
+                    <p class="text-slate-500 text-sm mt-1">This may take 30-60 seconds</p>
+                </div>
+                
+                <!-- Top Picks -->
+                <div id="topPicksGrid" class="hidden">
+                    <p class="text-xs text-slate-500 uppercase mb-2 flex items-center gap-2">
+                        <i class="fas fa-crown text-yellow-400"></i> Top Picks (Click to Analyze)
+                    </p>
+                    <div id="topPicksList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
+                        <!-- Picks will be inserted here -->
+                    </div>
+                    
+                    <!-- Bullish & Bearish Sections -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                        <div>
+                            <p class="text-xs text-slate-500 uppercase mb-2 flex items-center gap-2">
+                                <i class="fas fa-arrow-trend-up text-emerald-400"></i> Bullish Setup
+                            </p>
+                            <div id="bullishPicksList" class="space-y-2">
+                                <!-- Bullish picks -->
+                            </div>
+                        </div>
+                        <div>
+                            <p class="text-xs text-slate-500 uppercase mb-2 flex items-center gap-2">
+                                <i class="fas fa-arrow-trend-down text-red-400"></i> Bearish Setup
+                            </p>
+                            <div id="bearishPicksList" class="space-y-2">
+                                <!-- Bearish picks -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Error State -->
+                <div id="picksErrorState" class="hidden py-8 text-center">
+                    <i class="fas fa-exclamation-triangle text-3xl text-yellow-400 mb-3"></i>
+                    <p id="picksErrorMessage" class="text-slate-400">Failed to load picks</p>
+                    <button onclick="loadTodaysPicks()" class="mt-3 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm">
+                        Try Again
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loadingState" class="hidden">
+            <div class="card rounded-xl p-8 mb-6">
+                <div class="flex items-center justify-center gap-4">
+                    <div class="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+                    <span class="text-lg text-slate-300">Fetching live data from NSE...</span>
+                </div>
+                <p class="text-center text-slate-500 mt-2">This may take 10-15 seconds</p>
+            </div>
+        </div>
+
+        <!-- Results Container -->
+        <div id="resultsContainer" class="hidden">
+            <!-- AI Quick Recommendation Card (Auto-generated) -->
+            <div id="aiRecommendationCard" class="card rounded-xl p-6 mb-6 border-2 border-emerald-500/50 hidden">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-500 to-cyan-500 flex items-center justify-center">
+                        <i class="fas fa-robot text-white"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-lg font-bold">AI Trading Recommendation</h2>
+                        <p class="text-xs text-slate-400">Auto-generated analysis by <span id="aiModelUsed">--</span></p>
+                    </div>
+                    <div id="aiRecommendationBadge" class="ml-auto px-4 py-2 rounded-lg font-bold text-lg bg-slate-700">
+                        --
+                    </div>
+                </div>
+                <div id="aiRecommendationLoading" class="flex items-center justify-center py-8">
+                    <div class="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mr-3"></div>
+                    <span class="text-slate-400">AI is analyzing data and generating recommendation...</span>
+                </div>
+                <div id="aiRecommendationContent" class="hidden">
+                    <div id="aiQuickVerdict" class="bg-slate-800/80 rounded-lg p-4 mb-4">
+                        <!-- Quick verdict will be injected here -->
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                        <div id="aiEntryBox" class="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-4">
+                            <p class="text-xs text-slate-400 uppercase mb-1"><i class="fas fa-sign-in-alt mr-1"></i>Entry Price</p>
+                            <p id="aiEntryPrice" class="text-xl font-bold text-emerald-400">--</p>
+                            <p id="aiEntryNote" class="text-xs text-slate-400 mt-1"></p>
+                        </div>
+                        <div id="aiStoplossBox" class="bg-red-500/10 border border-red-500/30 rounded-lg p-4">
+                            <p class="text-xs text-slate-400 uppercase mb-1"><i class="fas fa-shield-alt mr-1"></i>Stop Loss</p>
+                            <p id="aiStoploss" class="text-xl font-bold text-red-400">--</p>
+                            <p id="aiStoplossNote" class="text-xs text-slate-400 mt-1"></p>
+                        </div>
+                        <div id="aiTargetBox" class="bg-cyan-500/10 border border-cyan-500/30 rounded-lg p-4">
+                            <p class="text-xs text-slate-400 uppercase mb-1"><i class="fas fa-bullseye mr-1"></i>Target</p>
+                            <p id="aiTarget" class="text-xl font-bold text-cyan-400">--</p>
+                            <p id="aiTargetNote" class="text-xs text-slate-400 mt-1"></p>
+                        </div>
+                    </div>
+                    <div id="aiDetailedAnalysis" class="bg-slate-800/50 rounded-lg p-4 text-sm">
+                        <!-- Detailed analysis will be injected here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Price Prediction Chart -->
+            <div id="pricePredictionCard" class="card rounded-xl p-5 mb-6 hidden">
+                <h3 class="text-lg font-semibold mb-4 flex items-center gap-2 clickable-header" onclick="explainSection('pricePrediction')">
+                    <i class="fas fa-chart-line text-emerald-400"></i>
+                    2-Week Price Prediction
+                </h3>
+                <div id="pricePredictionLoading" class="flex items-center justify-center py-8">
+                    <div class="w-6 h-6 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin mr-3"></div>
+                    <span class="text-slate-400">AI is generating price predictions...</span>
+                </div>
+                <div id="pricePredictionContent" class="hidden">
+                    <div class="h-64">
+                        <canvas id="predictionChart"></canvas>
+                    </div>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
+                        <div class="bg-slate-800/50 rounded-lg p-3 text-center">
+                            <p class="text-xs text-slate-500">Current</p>
+                            <p id="predChartCurrent" class="text-lg font-bold">--</p>
+                        </div>
+                        <div class="bg-emerald-500/10 rounded-lg p-3 text-center">
+                            <p class="text-xs text-slate-500">1 Week Target</p>
+                            <p id="predChart1Week" class="text-lg font-bold text-emerald-400">--</p>
+                        </div>
+                        <div class="bg-cyan-500/10 rounded-lg p-3 text-center">
+                            <p class="text-xs text-slate-500">2 Week Target</p>
+                            <p id="predChart2Week" class="text-lg font-bold text-cyan-400">--</p>
+                        </div>
+                        <div class="bg-slate-800/50 rounded-lg p-3 text-center">
+                            <p class="text-xs text-slate-500">Expected Move</p>
+                            <p id="predChartMove" class="text-lg font-bold">--</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Prediction Card -->
+            <div id="predictionCard" class="card rounded-xl p-6 mb-6">
+                <div class="flex flex-col md:flex-row gap-6">
+                    <!-- Left: Prediction Summary -->
+                    <div class="flex-1">
+                        <div class="flex items-center gap-4 mb-4">
+                            <div id="predictionBadge" class="px-4 py-2 rounded-lg font-bold text-lg">
+                                --
+                            </div>
+                            <div>
+                                <h2 id="symbolDisplay" class="text-2xl font-bold">--</h2>
+                                <p id="priceDisplay" class="text-slate-400">--</p>
+                            </div>
+                        </div>
+                        
+                        <div id="actionCard" class="bg-slate-800/50 rounded-lg p-4 mb-4">
+                            <div class="flex items-center gap-3 mb-2">
+                                <i id="actionIcon" class="fas fa-arrow-up text-2xl"></i>
+                                <span id="actionText" class="text-xl font-semibold">--</span>
+                            </div>
+                            <p id="actionDetail" class="text-slate-400 text-sm">--</p>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="bg-slate-800/50 rounded-lg p-3">
+                                <p class="text-xs text-slate-500 uppercase">Confidence</p>
+                                <p id="confidenceDisplay" class="text-2xl font-bold">--%</p>
+                            </div>
+                            <div class="bg-slate-800/50 rounded-lg p-3">
+                                <p class="text-xs text-slate-500 uppercase">Score</p>
+                                <p id="scoreDisplay" class="text-2xl font-bold">--</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Right: Checklist Passes -->
+                    <div class="md:w-64">
+                        <h3 class="text-sm font-semibold text-slate-400 uppercase mb-3">Checklist Summary</h3>
+                        <div class="space-y-2">
+                            <div class="flex items-center justify-between bg-emerald-500/10 border border-emerald-500/30 rounded-lg px-3 py-2">
+                                <span class="text-emerald-400"><i class="fas fa-check-circle mr-2"></i>Bullish</span>
+                                <span id="passCount" class="text-emerald-400 font-bold">0</span>
+                            </div>
+                            <div class="flex items-center justify-between bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">
+                                <span class="text-red-400"><i class="fas fa-times-circle mr-2"></i>Bearish</span>
+                                <span id="failCount" class="text-red-400 font-bold">0</span>
+                            </div>
+                            <div class="flex items-center justify-between bg-slate-500/10 border border-slate-500/30 rounded-lg px-3 py-2">
+                                <span class="text-slate-400"><i class="fas fa-minus-circle mr-2"></i>Neutral</span>
+                                <span id="neutralCount" class="text-slate-400 font-bold">0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Two Column Layout -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                <!-- Market Overview -->
+                <div class="card rounded-xl p-5">
+                    <h3 class="text-lg font-semibold mb-4 flex items-center gap-2 clickable-header" onclick="explainSection('marketOverview')">
+                        <i class="fas fa-globe text-cyan-400"></i>
+                        Market Overview
+                    </h3>
+                    <div id="marketOverview" class="space-y-3">
+                        <div class="loading-shimmer h-20 rounded-lg"></div>
+                    </div>
+                </div>
+
+                <!-- FII/DII Data -->
+                <div class="card rounded-xl p-5">
+                    <h3 class="text-lg font-semibold mb-4 flex items-center gap-2 clickable-header" onclick="explainSection('fiiDii')">
+                        <i class="fas fa-university text-purple-400"></i>
+                        FII/DII Activity
+                    </h3>
+                    <div id="fiiDiiData" class="space-y-3">
+                        <div class="loading-shimmer h-20 rounded-lg"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Full Width Checklist -->
+            <div class="card rounded-xl p-5 mb-6">
+                <h3 class="text-lg font-semibold mb-4 flex items-center gap-2 clickable-header" onclick="explainSection('checklist')">
+                    <i class="fas fa-clipboard-check text-emerald-400"></i>
+                    Analysis Checklist
+                </h3>
+                <div id="checklistContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    <!-- Checklist items will be injected here -->
+                </div>
+            </div>
+
+            <!-- Three Column Layout -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                <!-- Price Levels -->
+                <div class="card rounded-xl p-5">
+                    <h3 class="text-lg font-semibold mb-4 flex items-center gap-2 clickable-header" onclick="explainSection('cpr')">
+                        <i class="fas fa-layer-group text-amber-400"></i>
+                        CPR Levels
+                    </h3>
+                    <div id="cprLevels" class="space-y-2">
+                        <div class="loading-shimmer h-40 rounded-lg"></div>
+                    </div>
+                </div>
+
+                <!-- OI Analysis -->
+                <div class="card rounded-xl p-5">
+                    <h3 class="text-lg font-semibold mb-4 flex items-center gap-2 clickable-header" onclick="explainSection('oi')">
+                        <i class="fas fa-chart-bar text-blue-400"></i>
+                        OI Analysis
+                    </h3>
+                    <div id="oiAnalysis" class="space-y-3">
+                        <div class="loading-shimmer h-40 rounded-lg"></div>
+                    </div>
+                </div>
+
+                <!-- Gann Levels -->
+                <div class="card rounded-xl p-5">
+                    <h3 class="text-lg font-semibold mb-4 flex items-center gap-2 clickable-header" onclick="explainSection('gann')">
+                        <i class="fas fa-compass text-rose-400"></i>
+                        Gann Levels
+                    </h3>
+                    <div id="gannLevels" class="space-y-2">
+                        <div class="loading-shimmer h-40 rounded-lg"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- IV Range & VWAP -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div class="card rounded-xl p-5">
+                    <h3 class="text-lg font-semibold mb-4 flex items-center gap-2 clickable-header" onclick="explainSection('ivRange')">
+                        <i class="fas fa-chart-area text-indigo-400"></i>
+                        IV Range Analysis
+                    </h3>
+                    <div id="ivRange" class="space-y-3">
+                        <div class="loading-shimmer h-24 rounded-lg"></div>
+                    </div>
+                </div>
+
+                <div class="card rounded-xl p-5">
+                    <h3 class="text-lg font-semibold mb-4 flex items-center gap-2 clickable-header" onclick="explainSection('vwap')">
+                        <i class="fas fa-weight-hanging text-teal-400"></i>
+                        VWAP & Volume
+                    </h3>
+                    <div id="vwapVolume" class="space-y-3">
+                        <div class="loading-shimmer h-24 rounded-lg"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI Chat Section -->
+            <div class="card rounded-xl p-5">
+                <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <i class="fas fa-robot text-emerald-400"></i>
+                    AI Analysis (GROQ)
+                </h3>
+                <div id="aiChatContainer">
+                    <div id="aiMessages" class="bg-slate-800/50 rounded-lg p-4 mb-4 min-h-[200px] max-h-[400px] overflow-y-auto">
+                        <p class="text-slate-500 text-center">Click "Get AI Analysis" to get insights about this stock</p>
+                    </div>
+                    <div class="flex gap-3">
+                        <input type="text" id="aiQuestion" 
+                            placeholder="Ask about this stock analysis..." 
+                            class="flex-1 bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                            onkeypress="if(event.key==='Enter') askAI()">
+                        <button onclick="getAIAnalysis()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition">
+                            <i class="fas fa-magic mr-2"></i>Get AI Analysis
+                        </button>
+                        <button onclick="askAI()" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Empty State -->
+        <div id="emptyState" class="card rounded-xl p-12 text-center">
+            <div class="w-20 h-20 mx-auto mb-6 rounded-full bg-slate-800 flex items-center justify-center">
+                <i class="fas fa-search text-3xl text-slate-600"></i>
+            </div>
+            <h2 class="text-xl font-semibold text-slate-300 mb-2">Enter a Stock Symbol</h2>
+            <p class="text-slate-500 max-w-md mx-auto">
+                Get comprehensive analysis including FII/DII data, CPR levels, OI analysis, 
+                Gann levels, VWAP, and AI-powered insights.
+            </p>
+            <div class="mt-6 flex flex-wrap justify-center gap-2">
+                <button onclick="analyzeQuick('RELIANCE')" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm transition">RELIANCE</button>
+                <button onclick="analyzeQuick('TCS')" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm transition">TCS</button>
+                <button onclick="analyzeQuick('INFY')" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm transition">INFY</button>
+                <button onclick="analyzeQuick('HDFCBANK')" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm transition">HDFCBANK</button>
+                <button onclick="analyzeQuick('ICICIBANK')" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm transition">ICICIBANK</button>
+            </div>
+        </div>
+    </main>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden z-50 flex items-center justify-center">
+        <div class="card rounded-xl p-6 w-full max-w-md mx-4">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-lg font-semibold">Settings</h3>
+                <button onclick="closeSettings()" class="text-slate-400 hover:text-white">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm text-slate-400 mb-2">GROQ API Key</label>
+                    <input type="password" id="groqApiKey" 
+                        class="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500"
+                        placeholder="Enter your GROQ API key">
+                </div>
+                
+                <div>
+                    <label class="block text-sm text-slate-400 mb-2">AI Model</label>
+                    <select id="groqModel" 
+                        class="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500">
+                        <option value="llama-3.3-70b-versatile">Llama 3.3 70B (Best)</option>
+                        <option value="llama-3.1-8b-instant">Llama 3.1 8B (Fast)</option>
+                        <option value="mixtral-8x7b-32768">Mixtral 8x7B</option>
+                        <option value="gemma2-9b-it">Gemma 2 9B</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label class="block text-sm text-slate-400 mb-2">Backend URL</label>
+                    <input type="text" id="backendUrl" 
+                        class="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500"
+                        value="http://localhost:5000">
+                </div>
+                <div class="flex items-center gap-2">
+                    <input type="checkbox" id="useServerProxy" class="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-slate-600 rounded" />
+                    <label class="text-sm text-slate-400">Use backend proxy for AI calls (recommended)</label>
+                </div>
+                <div class="text-xs text-slate-500">When enabled, the frontend will call your backend at /api/ai/chat and the server will use the environment-configured GROQ key for AI requests. If disabled, the browser will call GROQ directly (not recommended for production).</div>
+                </div>
+            </div>
+            
+            <div class="mt-6 flex gap-3">
+                <button onclick="saveSettings()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-lg transition">
+                    Save Settings
+                </button>
+                <button onclick="clearGroqApiKey()" class="px-3 py-2 bg-red-700 hover:bg-red-600 text-white rounded-lg transition">Clear API Key</button>
+                <button onclick="closeSettings()" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2 rounded-lg transition">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI Explanation Modal -->
+    <div id="aiExplainModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+        <div class="card rounded-xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+            <div class="flex items-center justify-between p-4 border-b border-slate-700">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-cyan-500 flex items-center justify-center">
+                        <i class="fas fa-lightbulb text-white text-sm"></i>
+                    </div>
+                    <h3 id="aiExplainTitle" class="text-lg font-semibold">AI Explanation</h3>
+                </div>
+                <button onclick="closeAiExplain()" class="text-slate-400 hover:text-white p-2">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div id="aiExplainContent" class="p-4 overflow-y-auto flex-1">
+                <div class="flex items-center justify-center py-8">
+                    <div class="w-6 h-6 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin mr-3"></div>
+                    <span class="text-slate-400">AI is analyzing...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        let config = {
+            backendUrl: localStorage.getItem('backendUrl') || 'http://localhost:5000',
+            // IMPORTANT: Do NOT store production API keys in client-side code or commit them to Git.
+            // The default value below is intentionally empty—set your GROQ API key in Settings or
+            // save it in localStorage. For server-side use, configure environment variables instead.
+            groqApiKey: localStorage.getItem('groqApiKey') || '',
+            groqModel: localStorage.getItem('groqModel') || 'llama-3.3-70b-versatile'
+        };
+        // Use server proxy by default. Set to false if you want the browser to call Groq directly (not recommended).
+        config.useServerProxy = localStorage.getItem('useServerProxy') !== 'false';
+
+        let currentAnalysis = null;
+        let todaysPicksData = null;
+        let activeSectorFilter = null;
+        const sectorPicksCache = {};
+
+        function dedupeBySymbol(list, seen = new Set()) {
+            if (!Array.isArray(list)) return [];
+            return list.filter(item => {
+                const sym = (item.symbol || '').toUpperCase();
+                if (!sym) return false;
+                if (seen.has(sym)) return false;
+                seen.add(sym);
+                return true;
+            });
+        }
+
+        function applySectorFilter(list) {
+            if (!activeSectorFilter) return list;
+            const target = activeSectorFilter.toLowerCase();
+            return list.filter(item => (item.sector || '').toLowerCase().includes(target));
+        }
+
+        function updateSectorFilterChip() {
+            const chip = document.getElementById('sectorFilterChip');
+            const label = document.getElementById('sectorFilterLabel');
+            if (!chip || !label) return;
+            if (!activeSectorFilter) {
+                chip.classList.add('hidden');
+                label.textContent = '';
+                return;
+            }
+            label.textContent = activeSectorFilter;
+            chip.classList.remove('hidden');
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadSettings();
+            checkServerStatus();
+            loadTodaysPicks(); // Auto-load today's picks on page load
+        });
+
+        // ============ TODAY'S PICKS FUNCTIONS ============
+
+        function createGroqHeaders() {
+            // Use simple JSON content-type headers. If using direct Groq calls, include Authorization header.
+            const headers = {'Content-Type': 'application/json'};
+            if (!config.useServerProxy && config.groqApiKey && config.groqApiKey.trim() !== '') {
+                headers['Authorization'] = `Bearer ${config.groqApiKey}`;
+            }
+            return headers;
+        }
+
+        function getAiEndpoint() {
+            if (config.useServerProxy) return `${config.backendUrl.replace(/\/$/, '')}/api/ai/chat`;
+            return 'https://api.groq.com/openai/v1/chat/completions';
+        }
+
+        // Generic AI caller with fallback to direct GROQ if proxy 404s and client key exists
+        async function callAI(payload) {
+            const endpoint = getAiEndpoint();
+            try {
+                let response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: createGroqHeaders(),
+                    body: JSON.stringify(payload)
+                });
+
+                if (response.ok) {
+                    return await response.json();
+                }
+
+                const text = await response.text();
+
+                // If proxy is enabled but returns 404, attempt direct GROQ call if key is present
+                if (response.status === 404 && config.useServerProxy && config.groqApiKey && config.groqApiKey.trim() !== '') {
+                    const directResp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${config.groqApiKey}`
+                        },
+                        body: JSON.stringify(payload)
+                    });
+                    if (!directResp.ok) {
+                        const directText = await directResp.text();
+                        throw new Error(`Proxy 404; direct GROQ error (${directResp.status}) - ${directText.substring(0,200)}`);
+                    }
+                    return await directResp.json();
+                }
+
+                throw new Error(`AI server error (${response.status}) - ${text.substring(0,200)}`);
+            } catch (err) {
+                throw err;
+            }
+        }
+
+        // Display banner/notification for AI issues
+        function showAIError(msg) {
+            const banner = document.getElementById('aiErrorBanner');
+            if (!banner) return;
+            if (!msg) {
+                banner.classList.add('hidden');
+                banner.textContent = '';
+                return;
+            }
+            const endpointHint = config && typeof getAiEndpoint === 'function' ? ` Endpoint: ${getAiEndpoint()}` : '';
+            banner.textContent = `AI Error: ${msg}${endpointHint}`;
+            banner.classList.remove('hidden');
+        }
+
+        function clearGroqApiKey() {
+            localStorage.removeItem('groqApiKey');
+            config.groqApiKey = '';
+            try { document.getElementById('groqApiKey').value = ''; } catch(e){}
+            showAIError('GROQ API key cleared from local storage. AI features disabled until a valid key is provided.');
+        }
+        
+        async function loadTodaysPicks() {
+            const loadingState = document.getElementById('picksLoadingState');
+            const topPicksGrid = document.getElementById('topPicksGrid');
+            const errorState = document.getElementById('picksErrorState');
+            const refreshIcon = document.getElementById('refreshPicksIcon');
+            
+            // Show loading
+            loadingState.classList.remove('hidden');
+            topPicksGrid.classList.add('hidden');
+            errorState.classList.add('hidden');
+            refreshIcon.classList.add('animate-spin');
+            
+            try {
+                const response = await fetch(`${config.backendUrl}/api/todays-picks`);
+                if (!response.ok) {
+                    const text = await response.text();
+                    throw new Error(`AI server error (${response.status}) - ${text.substring(0,200)}`);
+                }
+                const data = await response.json();
+                
+                if (!data.success) {
+                    throw new Error(data.error || 'Failed to load picks');
+                }
+                
+                todaysPicksData = data;
+                displayTodaysPicks(data);
+                
+            } catch (error) {
+                loadingState.classList.add('hidden');
+                errorState.classList.remove('hidden');
+                document.getElementById('picksErrorMessage').textContent = error.message;
+            } finally {
+                refreshIcon.classList.remove('animate-spin');
+            }
+        }
+        
+        function displayTodaysPicks(data) {
+            const loadingState = document.getElementById('picksLoadingState');
+            const topPicksGrid = document.getElementById('topPicksGrid');
+            
+            loadingState.classList.add('hidden');
+            topPicksGrid.classList.remove('hidden');
+            
+            // Update market status
+            const statusBadge = document.getElementById('marketStatusBadge');
+            statusBadge.textContent = data.market_status;
+            if (data.market_status === 'BULLISH') {
+                statusBadge.className = 'px-2 py-1 rounded text-xs font-semibold bg-emerald-500/20 text-emerald-400';
+            } else if (data.market_status === 'BEARISH') {
+                statusBadge.className = 'px-2 py-1 rounded text-xs font-semibold bg-red-500/20 text-red-400';
+            } else {
+                statusBadge.className = 'px-2 py-1 rounded text-xs font-semibold bg-yellow-500/20 text-yellow-400';
+            }
+            
+            // Nifty change
+            const niftyBadge = document.getElementById('niftyChangeBadge');
+            const niftyChange = data.nifty_change || 0;
+            niftyBadge.textContent = `${niftyChange >= 0 ? '+' : ''}${niftyChange.toFixed(2)}%`;
+            niftyBadge.className = niftyChange >= 0 ? 'font-semibold text-emerald-400' : 'font-semibold text-red-400';
+            
+            // Sector in play
+            document.getElementById('sectorInPlayBadge').textContent = data.sector_in_play || 'None identified';
+            
+            // Sector Heatmap
+            displaySectorHeatmap(data.sectors || []);
+            
+            // If a sector-specific scan exists for the active filter, prefer it when filtering
+            const sourceData = (activeSectorFilter && sectorPicksCache[activeSectorFilter])
+                ? { ...data, ...sectorPicksCache[activeSectorFilter] }
+                : data;
+
+            // Apply sector filter and dedupe symbols across sections
+            const seenSymbols = new Set();
+            const filteredTop = dedupeBySymbol(applySectorFilter(sourceData.top_picks || []), seenSymbols);
+            const filteredBullish = dedupeBySymbol(applySectorFilter(sourceData.bullish_picks || []), seenSymbols);
+            const filteredBearish = dedupeBySymbol(applySectorFilter(sourceData.bearish_picks || []), seenSymbols);
+
+            displayTopPicks(filteredTop);
+            displayBullishPicks(filteredBullish);
+            displayBearishPicks(filteredBearish);
+            updateSectorFilterChip();
+
+            return filteredTop.length + filteredBullish.length + filteredBearish.length;
+        }
+        
+        function displaySectorHeatmap(sectors) {
+            const container = document.getElementById('sectorHeatmap');
+            
+            if (sectors.length === 0) {
+                container.innerHTML = '<span class="text-slate-500">No sector data available</span>';
+                return;
+            }
+            
+            container.innerHTML = sectors.map(sector => {
+                const rs = sector.relative_strength || 0;
+                let bgClass, textClass;
+                
+                if (rs > 1) {
+                    bgClass = 'bg-emerald-500/30';
+                    textClass = 'text-emerald-300';
+                } else if (rs > 0) {
+                    bgClass = 'bg-emerald-500/15';
+                    textClass = 'text-emerald-400';
+                } else if (rs > -0.5) {
+                    bgClass = 'bg-slate-700';
+                    textClass = 'text-slate-300';
+                } else {
+                    bgClass = 'bg-red-500/20';
+                    textClass = 'text-red-400';
+                }
+
+                const isActive = activeSectorFilter && activeSectorFilter.toLowerCase() === sector.name.toLowerCase();
+                const ringClass = isActive ? 'ring-2 ring-emerald-400/70 shadow-[0_0_0_4px_rgba(16,185,129,0.08)]' : '';
+                
+                // Shorten sector name
+                const shortName = sector.name
+                    .replace('NIFTY ', '')
+                    .replace('INDEX', '')
+                    .replace('SERVICES', 'SVCS')
+                    .trim();
+                
+                return `
+                    <div class="${bgClass} ${textClass} ${ringClass} px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer hover:opacity-80 transition"
+                         onclick="filterBySector('${sector.name}')"
+                         title="${sector.name}: ${sector.change_pct}% (RS: ${rs > 0 ? '+' : ''}${rs.toFixed(1)}%)">
+                        ${shortName} <span class="opacity-70">${sector.change_pct > 0 ? '+' : ''}${sector.change_pct}%</span>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        function displayTopPicks(picks) {
+            const container = document.getElementById('topPicksList');
+            
+            if (picks.length === 0) {
+                container.innerHTML = '<p class="text-slate-500 col-span-3 text-center py-4">No picks meeting criteria. Market may be range-bound.</p>';
+                return;
+            }
+            
+            container.innerHTML = picks.map(pick => {
+                const scoreColor = pick.score >= 60 ? 'text-emerald-400' : pick.score >= 40 ? 'text-yellow-400' : 'text-slate-400';
+                const changeColor = pick.change_pct >= 0 ? 'text-emerald-400' : 'text-red-400';
+                
+                return `
+                    <div class="bg-slate-800/70 hover:bg-slate-700/70 border border-slate-700 hover:border-emerald-500/50 rounded-lg p-3 cursor-pointer transition-all"
+                         onclick="analyzeQuick('${pick.symbol}')">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="font-bold text-white">${pick.symbol}</span>
+                            <span class="${scoreColor} text-sm font-semibold">${pick.score}pts</span>
+                        </div>
+                        <div class="flex items-center justify-between text-sm mb-2">
+                            <span class="text-slate-400">₹${pick.price?.toLocaleString()}</span>
+                            <span class="${changeColor}">${pick.change_pct >= 0 ? '+' : ''}${pick.change_pct}%</span>
+                        </div>
+                        <div class="flex flex-wrap gap-1">
+                            ${pick.signals?.slice(0, 3).map(s => `
+                                <span class="text-xs bg-slate-700 text-slate-300 px-1.5 py-0.5 rounded">${s}</span>
+                            `).join('') || ''}
+                        </div>
+                        <div class="mt-2 text-xs text-slate-500">
+                            ${pick.sector?.replace('NIFTY ', '') || ''} • ${pick.oi_interpretation?.replace('_', ' ') || ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        function displayBullishPicks(picks) {
+            const container = document.getElementById('bullishPicksList');
+            
+            if (picks.length === 0) {
+                container.innerHTML = '<p class="text-slate-500 text-sm text-center py-3">No bullish setups found</p>';
+                return;
+            }
+            
+            container.innerHTML = picks.map(pick => `
+                <div class="bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 rounded-lg p-2 cursor-pointer transition flex items-center justify-between"
+                     onclick="analyzeQuick('${pick.symbol}')">
+                    <div>
+                        <span class="font-semibold text-emerald-300">${pick.symbol}</span>
+                        <span class="text-xs text-slate-400 ml-2">${pick.oi_interpretation?.replace('_', ' ')}</span>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-sm text-white">₹${pick.price?.toLocaleString()}</span>
+                        <span class="text-xs ${pick.change_pct >= 0 ? 'text-emerald-400' : 'text-red-400'} ml-1">
+                            ${pick.change_pct >= 0 ? '+' : ''}${pick.change_pct}%
+                        </span>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        function displayBearishPicks(picks) {
+            const container = document.getElementById('bearishPicksList');
+            
+            if (picks.length === 0) {
+                container.innerHTML = '<p class="text-slate-500 text-sm text-center py-3">No bearish setups found</p>';
+                return;
+            }
+            
+            container.innerHTML = picks.map(pick => `
+                <div class="bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 rounded-lg p-2 cursor-pointer transition flex items-center justify-between"
+                     onclick="analyzeQuick('${pick.symbol}')">
+                    <div>
+                        <span class="font-semibold text-red-300">${pick.symbol}</span>
+                        <span class="text-xs text-slate-400 ml-2">${pick.oi_interpretation?.replace('_', ' ')}</span>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-sm text-white">₹${pick.price?.toLocaleString()}</span>
+                        <span class="text-xs ${pick.change_pct >= 0 ? 'text-emerald-400' : 'text-red-400'} ml-1">
+                            ${pick.change_pct >= 0 ? '+' : ''}${pick.change_pct}%
+                        </span>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        async function filterBySector(sectorName) {
+            activeSectorFilter = sectorName;
+            let shown = todaysPicksData ? displayTodaysPicks(todaysPicksData) : 0;
+            if (shown === 0) {
+                shown = await fetchSectorPicks(sectorName);
+            }
+            const picksSection = document.getElementById('todaysPicksSection');
+            if (picksSection) {
+                picksSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+
+        function clearSectorFilter() {
+            activeSectorFilter = null;
+            updateSectorFilterChip();
+            if (todaysPicksData) {
+                displayTodaysPicks(todaysPicksData);
+            }
+        }
+
+        async function fetchSectorPicks(sectorName) {
+            const topList = document.getElementById('topPicksList');
+            const topGrid = document.getElementById('topPicksGrid');
+            const loadingState = document.getElementById('picksLoadingState');
+            const errorState = document.getElementById('picksErrorState');
+
+            if (loadingState) loadingState.classList.add('hidden');
+            if (errorState) errorState.classList.add('hidden');
+            if (topGrid) topGrid.classList.remove('hidden');
+            if (topList) {
+                topList.innerHTML = `<p class="text-slate-400 text-sm py-3">Scanning ${sectorName} for setups...</p>`;
+            }
+
+            try {
+                const res = await fetch(`${config.backendUrl}/api/screen-sector/${encodeURIComponent(sectorName)}`);
+                if (!res.ok) {
+                    const text = await res.text();
+                    throw new Error(`Sector scan failed (${res.status}) - ${text.substring(0,200)}`);
+                }
+                const data = await res.json();
+                if (!data.success || !Array.isArray(data.stocks) || data.stocks.length === 0) {
+                    topList.innerHTML = `<p class="text-slate-500 col-span-3 text-center py-4">No setups found for ${sectorName} (live scan)</p>`;
+                    return 0;
+                }
+
+                const prepared = data.stocks.map(s => ({
+                    symbol: s.symbol || s.ticker || '',
+                    sector: sectorName,
+                    price: s.price || s.current_price || 0,
+                    change_pct: s.change_pct ?? s.relative_strength ?? 0,
+                    oi_interpretation: s.oi_interpretation || 'NEUTRAL',
+                    score: s.score || 50,
+                    signals: s.signals || []
+                })).filter(s => s.symbol);
+
+                const bullish = prepared.filter(p => ['LONG_BUILDUP', 'SHORT_COVERING', 'BULLISH'].includes((p.oi_interpretation || '').toUpperCase()));
+                const bearish = prepared.filter(p => ['SHORT_BUILDUP', 'BEARISH', 'LONG_UNWINDING'].includes((p.oi_interpretation || '').toUpperCase()));
+
+                sectorPicksCache[sectorName] = {
+                    top_picks: prepared,
+                    bullish_picks: bullish,
+                    bearish_picks: bearish
+                };
+
+                if (!todaysPicksData) {
+                    todaysPicksData = { top_picks: [], bullish_picks: [], bearish_picks: [], sectors: [] };
+                }
+
+                return displayTodaysPicks(todaysPicksData);
+            } catch (err) {
+                console.error(err);
+                if (errorState) {
+                    errorState.classList.remove('hidden');
+                    document.getElementById('picksErrorMessage').textContent = err.message;
+                }
+                return 0;
+            }
+        }
+
+        function loadSettings() {
+            document.getElementById('groqApiKey').value = config.groqApiKey;
+            document.getElementById('groqModel').value = config.groqModel;
+            document.getElementById('backendUrl').value = config.backendUrl;
+            document.getElementById('useServerProxy').checked = config.useServerProxy;
+        }
+
+        function saveSettings() {
+            config.groqApiKey = document.getElementById('groqApiKey').value;
+            config.groqModel = document.getElementById('groqModel').value;
+            config.backendUrl = document.getElementById('backendUrl').value;
+            config.useServerProxy = document.getElementById('useServerProxy').checked;
+            
+            localStorage.setItem('groqApiKey', config.groqApiKey);
+            localStorage.setItem('groqModel', config.groqModel);
+            localStorage.setItem('backendUrl', config.backendUrl);
+            localStorage.setItem('useServerProxy', config.useServerProxy);
+            
+            closeSettings();
+            checkServerStatus();
+        }
+
+        function openSettings() {
+            document.getElementById('settingsModal').classList.remove('hidden');
+        }
+
+        function closeSettings() {
+            document.getElementById('settingsModal').classList.add('hidden');
+        }
+
+        async function checkServerStatus() {
+            const statusEl = document.getElementById('serverStatus');
+            try {
+                const res = await fetch(`${config.backendUrl}/api/health`, { timeout: 5000 });
+                const data = await res.json();
+                statusEl.innerHTML = `
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 pulse-dot"></span>
+                    <span class="text-emerald-400">Server Online (v${data.version || '2.0'})</span>
+                `;
+                // Check AI proxy health
+                try {
+                    const aiRes = await fetch(`${config.backendUrl}/api/ai/health`);
+                    if (aiRes.ok) {
+                        const aiData = await aiRes.json();
+                        if (aiData.groq_key_configured) {
+                            statusEl.innerHTML += ` <span class="text-slate-400 text-xs ml-2">AI Proxy: Ready</span>`;
+                        } else {
+                            statusEl.innerHTML += ` <span class="text-yellow-300 text-xs ml-2">AI Proxy: Missing Server Key</span>`;
+                        }
+                    }
+                } catch (e) {
+                    // Ignore; AI proxy may not be present
+                }
+            } catch (e) {
+                statusEl.innerHTML = `
+                    <span class="w-2 h-2 rounded-full bg-red-500"></span>
+                    <span class="text-red-400">Server Offline</span>
+                `;
+            }
+        }
+
+        function analyzeQuick(symbol) {
+            document.getElementById('symbolInput').value = symbol;
+            analyzeStock();
+        }
+
+        async function analyzeStock() {
+            const symbol = document.getElementById('symbolInput').value.trim().toUpperCase();
+            if (!symbol) {
+                alert('Please enter a stock symbol');
+                return;
+            }
+
+            // Show loading
+            document.getElementById('emptyState').classList.add('hidden');
+            document.getElementById('resultsContainer').classList.add('hidden');
+            document.getElementById('loadingState').classList.remove('hidden');
+
+            try {
+                const response = await fetch(`${config.backendUrl}/api/full-analysis/${symbol}`);
+                if (!response.ok) {
+                    const text = await response.text();
+                    throw new Error(`Backend error (${response.status}) - ${text.substring(0,200)}. Check Backend URL and server status.`);
+                }
+                const data = await response.json();
+                
+                if (!data.success) {
+                    throw new Error(data.error || 'Analysis failed');
+                }
+
+                currentAnalysis = data;
+                displayResults(data);
+                
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+                document.getElementById('loadingState').classList.add('hidden');
+                document.getElementById('emptyState').classList.remove('hidden');
+            }
+        }
+
+        function displayResults(data) {
+            document.getElementById('loadingState').classList.add('hidden');
+            document.getElementById('resultsContainer').classList.remove('hidden');
+
+            const stock = data.stock_analysis?.data || {};
+            const prediction = data.prediction || {};
+            const market = data.market_overview?.data || {};
+            const fii = data.fii_dii?.data || {};
+
+            // Main Prediction Card
+            displayPrediction(data.symbol, stock, prediction);
+            
+            // Market Overview
+            displayMarketOverview(market);
+            
+            // FII/DII
+            displayFiiDii(fii);
+            
+            // Checklist
+            displayChecklist(prediction.checklist || []);
+            
+            // CPR Levels
+            displayCPRLevels(stock.cpr || {}, stock.current_price);
+            
+            // OI Analysis
+            displayOIAnalysis(stock);
+            
+            // Gann Levels
+            displayGannLevels(stock.gann || {}, stock.current_price);
+            
+            // IV Range
+            displayIVRange(stock);
+            
+            // VWAP & Volume
+            displayVWAP(stock);
+            
+            // Reset AI chat
+            document.getElementById('aiMessages').innerHTML = `
+                <p class="text-slate-500 text-center">Ask follow-up questions about ${data.symbol}</p>
+            `;
+
+            // AUTO-TRIGGER AI RECOMMENDATION
+            getAutoAIRecommendation(data);
+
+            // Generate Price Prediction Chart
+            generatePricePrediction(data);
+        }
+
+        let predictionChartInstance = null;
+
+        async function generatePricePrediction(data) {
+            const card = document.getElementById('pricePredictionCard');
+            const loading = document.getElementById('pricePredictionLoading');
+            const content = document.getElementById('pricePredictionContent');
+            
+            card.classList.remove('hidden');
+            loading.classList.remove('hidden');
+            content.classList.add('hidden');
+
+            // Inform: if client-side key not set, attempt server-side proxy; errors from proxy will be shown
+            if (!config.groqApiKey || config.groqApiKey.trim() === '') {
+                showAIError('Using server-side proxy (/api/ai/chat) as no client-side GROQ key was provided.');
+            } else {
+                showAIError('');
+            }
+
+            const stock = data.stock_analysis?.data || {};
+            const prediction = data.prediction || {};
+            const fii = data.fii_dii?.data || {};
+
+            const prompt = `You are a quantitative analyst. Based on this data for ${data.symbol}, generate a 2-week price prediction.
+
+Current Price: ₹${stock.current_price}
+System Prediction: ${prediction.prediction} (${prediction.confidence}% confidence)
+Support: ₹${stock.support_strike}, Resistance: ₹${stock.resistance_strike}
+Max Pain: ₹${stock.max_pain}
+ATM IV: ${stock.atm_iv}%
+FII Bias: ${fii.fii_bias}
+OI Interpretation: ${stock.oi_interpretation}
+
+Generate price predictions for the next 14 days. Return ONLY a JSON object in this exact format:
+{
+  "predictions": [
+    {"day": 0, "price": ${stock.current_price}, "low": ${stock.current_price}, "high": ${stock.current_price}},
+    {"day": 1, "price": <predicted>, "low": <low_range>, "high": <high_range>},
+    {"day": 2, "price": <predicted>, "low": <low_range>, "high": <high_range>},
+    ...continue for days 3-14...
+  ],
+  "week1_target": <price at day 7>,
+  "week2_target": <price at day 14>,
+  "expected_move_percent": <percentage change expected>,
+  "confidence": "HIGH" or "MEDIUM" or "LOW"
+}
+
+Base predictions on technical levels, IV-implied move, and trend direction. Be realistic.`;
+
+            try {
+                const result = await callAI({
+                    model: config.groqModel,
+                    messages: [{ role: 'user', content: prompt }],
+                    temperature: 0.3,
+                    max_tokens: 1500
+                });
+                if (result.error) throw new Error(result.error.message);
+
+                const aiText = result.choices[0].message.content;
+                const jsonMatch = aiText.match(/\{[\s\S]*\}/);
+                if (!jsonMatch) throw new Error('No JSON found');
+                
+                const predData = JSON.parse(jsonMatch[0]);
+                
+                loading.classList.add('hidden');
+                content.classList.remove('hidden');
+
+                // Update summary boxes
+                document.getElementById('predChartCurrent').textContent = `₹${stock.current_price?.toLocaleString()}`;
+                document.getElementById('predChart1Week').textContent = `₹${predData.week1_target?.toLocaleString()}`;
+                document.getElementById('predChart2Week').textContent = `₹${predData.week2_target?.toLocaleString()}`;
+                
+                const moveColor = predData.expected_move_percent >= 0 ? 'text-emerald-400' : 'text-red-400';
+                const moveSign = predData.expected_move_percent >= 0 ? '+' : '';
+                document.getElementById('predChartMove').innerHTML = `<span class="${moveColor}">${moveSign}${predData.expected_move_percent?.toFixed(1)}%</span>`;
+
+                // Draw chart
+                drawPredictionChart(predData.predictions, stock.current_price);
+
+            } catch (error) {
+                loading.classList.add('hidden');
+                content.classList.remove('hidden');
+                document.getElementById('predChartCurrent').textContent = `₹${stock.current_price?.toLocaleString()}`;
+                document.getElementById('predChart1Week').textContent = 'N/A';
+                document.getElementById('predChart2Week').textContent = 'N/A';
+                document.getElementById('predChartMove').textContent = 'Error';
+            }
+        }
+
+        function drawPredictionChart(predictions, currentPrice) {
+            const ctx = document.getElementById('predictionChart').getContext('2d');
+            
+            if (predictionChartInstance) {
+                predictionChartInstance.destroy();
+            }
+
+            const labels = predictions.map(p => p.day === 0 ? 'Today' : `Day ${p.day}`);
+            const prices = predictions.map(p => p.price);
+            const highs = predictions.map(p => p.high);
+            const lows = predictions.map(p => p.low);
+
+            predictionChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Predicted Price',
+                            data: prices,
+                            borderColor: '#34d399',
+                            backgroundColor: 'rgba(52, 211, 153, 0.1)',
+                            borderWidth: 3,
+                            fill: false,
+                            tension: 0.4,
+                            pointRadius: 4,
+                            pointHoverRadius: 6
+                        },
+                        {
+                            label: 'High Range',
+                            data: highs,
+                            borderColor: 'rgba(34, 211, 153, 0.3)',
+                            borderWidth: 1,
+                            borderDash: [5, 5],
+                            fill: false,
+                            tension: 0.4,
+                            pointRadius: 0
+                        },
+                        {
+                            label: 'Low Range',
+                            data: lows,
+                            borderColor: 'rgba(239, 68, 68, 0.3)',
+                            borderWidth: 1,
+                            borderDash: [5, 5],
+                            fill: '-1',
+                            backgroundColor: 'rgba(100, 100, 100, 0.1)',
+                            tension: 0.4,
+                            pointRadius: 0
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: { color: '#94a3b8', font: { size: 11 } }
+                        },
+                        tooltip: {
+                            backgroundColor: '#1e293b',
+                            titleColor: '#f1f5f9',
+                            bodyColor: '#cbd5e1',
+                            borderColor: '#475569',
+                            borderWidth: 1,
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.dataset.label}: ₹${context.raw?.toLocaleString()}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: 'rgba(71, 85, 105, 0.3)' },
+                            ticks: { color: '#94a3b8' }
+                        },
+                        y: {
+                            grid: { color: 'rgba(71, 85, 105, 0.3)' },
+                            ticks: { 
+                                color: '#94a3b8',
+                                callback: function(value) {
+                                    return '₹' + value.toLocaleString();
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // AI Section Explanation Functions
+        function closeAiExplain() {
+            document.getElementById('aiExplainModal').classList.add('hidden');
+        }
+
+        async function explainSection(section) {
+            const modal = document.getElementById('aiExplainModal');
+            const title = document.getElementById('aiExplainTitle');
+            const content = document.getElementById('aiExplainContent');
+            
+            if (!currentAnalysis) {
+                alert('Please analyze a stock first');
+                return;
+            }
+
+            modal.classList.remove('hidden');
+            content.innerHTML = `
+                <div class="flex items-center justify-center py-8">
+                    <div class="w-6 h-6 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin mr-3"></div>
+                    <span class="text-slate-400">AI is analyzing this section...</span>
+                </div>
+            `;
+
+            const stock = currentAnalysis.stock_analysis?.data || {};
+            const prediction = currentAnalysis.prediction || {};
+            const market = currentAnalysis.market_overview?.data || {};
+            const fii = currentAnalysis.fii_dii?.data || {};
+
+            let sectionTitle = '';
+            let sectionData = '';
+            let prompt = '';
+
+            switch(section) {
+                case 'marketOverview':
+                    sectionTitle = 'Market Overview Explained';
+                    sectionData = `
+- Nifty Close: ${market.nifty_close}
+- Change: ${market.change} (${market.change_pct}%)
+- Gap: ${market.gap_type} (${market.gap_points} pts)
+- CPR Type: ${market.cpr_type}
+- CPR Width: ${market.cpr_width_percent}%
+- Gap Signal: ${market.gap_signal}
+- CPR Signal: ${market.cpr_signal}`;
+                    prompt = `Explain this Market Overview data to a trader in simple terms. What does each number mean? What is the market telling us today? Is this bullish, bearish, or neutral for trading?\n\nData:\n${sectionData}`;
+                    break;
+
+                case 'fiiDii':
+                    sectionTitle = 'FII/DII Activity Explained';
+                    sectionData = `
+- FII Bias: ${fii.fii_bias}
+- FII Long Ratio: ${fii.fii_long_ratio}%
+- FII Index Longs: ${fii.fii_index_long}
+- FII Index Shorts: ${fii.fii_index_short}
+- FII Signal: ${fii.fii_signal}`;
+                    prompt = `Explain this FII/DII Activity data to a trader. What does FII Long Ratio mean? What does the FII Bias tell us? How should a retail trader interpret this institutional activity?\n\nData:\n${sectionData}`;
+                    break;
+
+                case 'checklist':
+                    sectionTitle = 'Analysis Checklist Explained';
+                    const checklist = prediction.checklist || [];
+                    sectionData = checklist.map(c => `- ${c.factor}: ${c.status} (${c.impact}) - ${c.value} [Weight: ${c.weight}]`).join('\n');
+                    prompt = `Explain this trading checklist to a beginner trader. What does each factor mean? Why do some PASS and some FAIL? What is the overall picture?\n\nChecklist:\n${sectionData}\n\nBullish Score: ${prediction.bullish_score}, Bearish Score: ${prediction.bearish_score}`;
+                    break;
+
+                case 'cpr':
+                    sectionTitle = 'CPR Levels Explained';
+                    sectionData = `
+Current Price: ₹${stock.current_price}
+- R3: ₹${stock.cpr?.r3}
+- R2: ₹${stock.cpr?.r2}
+- R1: ₹${stock.cpr?.r1}
+- TC (Top Central): ₹${stock.cpr?.tc}
+- Pivot: ₹${stock.cpr?.pivot}
+- BC (Bottom Central): ₹${stock.cpr?.bc}
+- S1: ₹${stock.cpr?.s1}
+- S2: ₹${stock.cpr?.s2}
+- S3: ₹${stock.cpr?.s3}`;
+                    prompt = `Explain CPR (Central Pivot Range) levels to a trader. What is CPR? What do R1, R2, R3 (resistances) and S1, S2, S3 (supports) mean? How should a trader use these levels for entry, exit, and stop loss?\n\nCurrent Data:\n${sectionData}`;
+                    break;
+
+                case 'oi':
+                    sectionTitle = 'OI Analysis Explained';
+                    sectionData = `
+- PCR (Put-Call Ratio): ${stock.pcr}
+- OI Interpretation: ${stock.oi_interpretation}
+- OI Signal: ${stock.oi_signal}
+- Max Pain: ₹${stock.max_pain}
+- Support Strike (Max Put OI): ₹${stock.support_strike}
+- Resistance Strike (Max Call OI): ₹${stock.resistance_strike}`;
+                    prompt = `Explain Open Interest (OI) Analysis to a trader. What is PCR and what does ${stock.pcr} indicate? What is ${stock.oi_interpretation}? What is Max Pain and why is it important? How to use support/resistance from OI?\n\nData:\n${sectionData}`;
+                    break;
+
+                case 'gann':
+                    sectionTitle = 'Gann Levels Explained';
+                    sectionData = `
+Current Price: ₹${stock.current_price}
+Gann Resistance: ${stock.gann?.resistance?.join(', ')}
+Gann Support: ${stock.gann?.support?.join(', ')}`;
+                    prompt = `Explain Gann Square of 9 levels to a trader. What is Gann analysis? How are these support/resistance levels calculated? How should a trader use Gann levels for trading decisions?\n\nData:\n${sectionData}`;
+                    break;
+
+                case 'ivRange':
+                    sectionTitle = 'IV Range Explained';
+                    sectionData = `
+- Current Price: ₹${stock.current_price}
+- ATM IV: ${stock.atm_iv}%
+- IV Range Low: ₹${stock.iv_range_low}
+- IV Range High: ₹${stock.iv_range_high}
+- Daily IV Range: ±${stock.daily_iv_range}`;
+                    prompt = `Explain Implied Volatility (IV) Range to a trader. What is IV? What does ATM IV of ${stock.atm_iv}% tell us? What is the IV Range and how is it calculated? Is this high or low volatility? How to use this for trading?\n\nData:\n${sectionData}`;
+                    break;
+
+                case 'vwap':
+                    sectionTitle = 'VWAP & Volume Explained';
+                    sectionData = `
+- VWAP: ₹${stock.vwap_estimate}
+- Current Price: ₹${stock.current_price}
+- Price vs VWAP: ${stock.price_vs_vwap}
+- Volume: ${stock.volume}
+- Delivery %: ${stock.delivery_percent}%`;
+                    prompt = `Explain VWAP and Volume data to a trader. What is VWAP (Volume Weighted Average Price)? What does it mean when price is ${stock.price_vs_vwap} VWAP? What does ${stock.delivery_percent}% delivery indicate? Is this genuine buying/selling?\n\nData:\n${sectionData}`;
+                    break;
+
+                case 'pricePrediction':
+                    sectionTitle = 'Price Prediction Chart Explained';
+                    prompt = `Explain how AI stock price predictions work. What factors influence the prediction? How reliable are 2-week price forecasts? What are the limitations? How should a trader use this chart - as a guideline or exact targets?\n\nContext: This prediction is based on technical indicators, implied volatility, support/resistance levels, OI data, and FII activity for ${currentAnalysis.symbol}.`;
+                    break;
+
+                default:
+                    sectionTitle = 'Explanation';
+                    prompt = 'Explain this section.';
+            }
+
+            title.textContent = sectionTitle;
+
+            // If user hasn't set a front-end GROQ key, we still continue and rely on server-side proxy.
+            if (!config.groqApiKey || config.groqApiKey.trim() === '') {
+                // Give informational hint to the user but continue
+                content.innerHTML = `
+                    <div class="text-yellow-300 p-4">
+                        <i class="fas fa-info-circle mr-2"></i>
+                        No client-side GROQ key set. Attempting to use server-side proxy `/api/ai/chat`.
+                    </div>`;
+            }
+
+            try {
+                const result = await callAI({
+                    model: config.groqModel,
+                    messages: [{ role: 'user', content: prompt + '\n\nExplain in simple terms with bullet points. Keep it practical for trading decisions.' }],
+                    temperature: 0.5,
+                    max_tokens: 800
+                });
+
+                if (result.error) throw new Error(result.error.message);
+
+                const aiResponse = result.choices[0].message.content;
+                content.innerHTML = `<div class="prose prose-invert prose-sm max-w-none">${formatAIResponse(aiResponse)}</div>`;
+
+            } catch (error) {
+                content.innerHTML = `<div class="text-red-400"><i class="fas fa-exclamation-triangle mr-2"></i>Error: ${error.message}</div>`;
+            }
+        }
+
+        function displayPrediction(symbol, stock, prediction) {
+            // Symbol and price
+            document.getElementById('symbolDisplay').textContent = symbol;
+            const change = stock.price_change || 0;
+            const changePct = stock.price_change_pct || 0;
+            const changeColor = change >= 0 ? 'text-emerald-400' : 'text-red-400';
+            const changeSign = change >= 0 ? '+' : '';
+            document.getElementById('priceDisplay').innerHTML = `
+                ₹${stock.current_price?.toLocaleString() || '--'} 
+                <span class="${changeColor}">(${changeSign}${change.toFixed(2)} / ${changeSign}${changePct.toFixed(2)}%)</span>
+            `;
+
+            // Prediction badge
+            const badge = document.getElementById('predictionBadge');
+            const pred = prediction.prediction || 'NEUTRAL';
+            badge.textContent = pred;
+            badge.className = 'px-4 py-2 rounded-lg font-bold text-lg ';
+            if (pred === 'BULLISH') {
+                badge.className += 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/50';
+            } else if (pred === 'BEARISH') {
+                badge.className += 'bg-red-500/20 text-red-400 border border-red-500/50';
+            } else {
+                badge.className += 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/50';
+            }
+
+            // Action card
+            const actionCard = document.getElementById('actionCard');
+            const action = prediction.action || 'WAIT';
+            document.getElementById('actionText').textContent = action;
+            document.getElementById('actionDetail').textContent = prediction.action_detail || '';
+            
+            const actionIcon = document.getElementById('actionIcon');
+            if (action === 'BUY') {
+                actionIcon.className = 'fas fa-arrow-trend-up text-2xl text-emerald-400';
+                actionCard.className = 'bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-4 mb-4';
+            } else if (action === 'SELL') {
+                actionIcon.className = 'fas fa-arrow-trend-down text-2xl text-red-400';
+                actionCard.className = 'bg-red-500/10 border border-red-500/30 rounded-lg p-4 mb-4';
+            } else {
+                actionIcon.className = 'fas fa-pause text-2xl text-yellow-400';
+                actionCard.className = 'bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 mb-4';
+            }
+
+            // Confidence and Score
+            document.getElementById('confidenceDisplay').textContent = `${prediction.confidence || 50}%`;
+            document.getElementById('scoreDisplay').innerHTML = `
+                <span class="text-emerald-400">${prediction.bullish_score || 0}</span> / 
+                <span class="text-red-400">${prediction.bearish_score || 0}</span>
+            `;
+
+            // Checklist counts
+            const checklist = prediction.checklist || [];
+            document.getElementById('passCount').textContent = checklist.filter(c => c.status === 'PASS').length;
+            document.getElementById('failCount').textContent = checklist.filter(c => c.status === 'FAIL').length;
+            document.getElementById('neutralCount').textContent = checklist.filter(c => c.status === 'NEUTRAL' || c.status === 'N/A' || c.status === 'WARN').length;
+        }
+
+        function displayMarketOverview(market) {
+            const container = document.getElementById('marketOverview');
+            if (!market.nifty_close) {
+                container.innerHTML = '<p class="text-slate-500">Market data unavailable</p>';
+                return;
+            }
+
+            const changeColor = market.change >= 0 ? 'text-emerald-400' : 'text-red-400';
+            const changeSign = market.change >= 0 ? '+' : '';
+
+            container.innerHTML = `
+                <div class="flex justify-between items-center pb-3 border-b border-slate-700">
+                    <span class="text-slate-400">Nifty 50</span>
+                    <div class="text-right">
+                        <span class="text-lg font-semibold">${market.nifty_close?.toLocaleString()}</span>
+                        <span class="${changeColor} text-sm ml-2">(${changeSign}${market.change?.toFixed(0)} / ${changeSign}${market.change_pct?.toFixed(2)}%)</span>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                        <p class="text-slate-500">Gap</p>
+                        <p class="${market.gap_points >= 0 ? 'text-emerald-400' : 'text-red-400'} font-medium">
+                            ${market.gap_points >= 0 ? '+' : ''}${market.gap_points?.toFixed(0)} pts (${market.gap_type})
+                        </p>
+                    </div>
+                    <div>
+                        <p class="text-slate-500">CPR Type</p>
+                        <p class="text-amber-400 font-medium">${market.cpr_type}</p>
+                    </div>
+                </div>
+                <div class="bg-slate-800/50 rounded-lg p-3 mt-3">
+                    <p class="text-xs text-slate-500">Market Signal</p>
+                    <p class="text-sm">${market.cpr_signal}</p>
+                </div>
+            `;
+        }
+
+        function displayFiiDii(fii) {
+            const container = document.getElementById('fiiDiiData');
+            if (!fii.fii_long_ratio) {
+                container.innerHTML = '<p class="text-slate-500">FII/DII data unavailable</p>';
+                return;
+            }
+
+            const biasColor = fii.fii_bias === 'BULLISH' || fii.fii_bias === 'OVERSOLD' ? 'text-emerald-400' : 
+                              fii.fii_bias === 'BEARISH' || fii.fii_bias === 'OVERBOUGHT' ? 'text-red-400' : 'text-yellow-400';
+
+            container.innerHTML = `
+                <div class="flex justify-between items-center pb-3 border-b border-slate-700">
+                    <span class="text-slate-400">FII Bias</span>
+                    <span class="${biasColor} font-semibold">${fii.fii_bias}</span>
+                </div>
+                <div class="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                        <p class="text-slate-500">Long Ratio</p>
+                        <p class="font-medium">${fii.fii_long_ratio?.toFixed(1)}%</p>
+                    </div>
+                    <div>
+                        <p class="text-slate-500">Index Futures Net</p>
+                        <p class="${fii.fii_index_futures_net >= 0 ? 'text-emerald-400' : 'text-red-400'} font-medium">
+                            ₹${fii.fii_index_futures_net?.toLocaleString()} Cr
+                        </p>
+                    </div>
+                </div>
+                <div class="bg-slate-800/50 rounded-lg p-3 mt-3">
+                    <p class="text-xs text-slate-500">FII Signal</p>
+                    <p class="text-sm">${fii.fii_signal}</p>
+                </div>
+            `;
+        }
+
+        function displayChecklist(checklist) {
+            const container = document.getElementById('checklistContainer');
+            container.innerHTML = checklist.map(item => {
+                let statusColor, statusIcon, bgColor;
+                if (item.status === 'PASS') {
+                    statusColor = 'text-emerald-400';
+                    statusIcon = 'fa-check-circle';
+                    bgColor = 'bg-emerald-500/10 border-emerald-500/30';
+                } else if (item.status === 'FAIL') {
+                    statusColor = 'text-red-400';
+                    statusIcon = 'fa-times-circle';
+                    bgColor = 'bg-red-500/10 border-red-500/30';
+                } else if (item.status === 'WARN') {
+                    statusColor = 'text-yellow-400';
+                    statusIcon = 'fa-exclamation-triangle';
+                    bgColor = 'bg-yellow-500/10 border-yellow-500/30';
+                } else {
+                    statusColor = 'text-slate-400';
+                    statusIcon = 'fa-minus-circle';
+                    bgColor = 'bg-slate-500/10 border-slate-500/30';
+                }
+
+                return `
+                    <div class="checklist-item ${bgColor} border rounded-lg p-3">
+                        <div class="flex items-start gap-3">
+                            <i class="fas ${statusIcon} ${statusColor} mt-0.5"></i>
+                            <div class="flex-1 min-w-0">
+                                <p class="font-medium text-sm">${item.factor}</p>
+                                <p class="text-xs text-slate-400 truncate">${item.value}</p>
+                            </div>
+                            <span class="text-xs text-slate-500">${item.weight}pts</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function displayCPRLevels(cpr, currentPrice) {
+            const container = document.getElementById('cprLevels');
+            if (!cpr.pivot) {
+                container.innerHTML = '<p class="text-slate-500">CPR data unavailable</p>';
+                return;
+            }
+
+            const levels = [
+                { label: 'R3', value: cpr.r3, color: 'text-red-400' },
+                { label: 'R2', value: cpr.r2, color: 'text-red-400' },
+                { label: 'R1', value: cpr.r1, color: 'text-red-300' },
+                { label: 'TC', value: cpr.tc, color: 'text-amber-400' },
+                { label: 'Pivot', value: cpr.pivot, color: 'text-white font-semibold' },
+                { label: 'BC', value: cpr.bc, color: 'text-amber-400' },
+                { label: 'S1', value: cpr.s1, color: 'text-emerald-300' },
+                { label: 'S2', value: cpr.s2, color: 'text-emerald-400' },
+                { label: 'S3', value: cpr.s3, color: 'text-emerald-400' }
+            ];
+
+            container.innerHTML = levels.map(level => {
+                const isNearPrice = Math.abs(level.value - currentPrice) < currentPrice * 0.01;
+                return `
+                    <div class="flex justify-between items-center py-1 ${isNearPrice ? 'bg-slate-700/50 -mx-2 px-2 rounded' : ''}">
+                        <span class="text-slate-400 text-sm">${level.label}</span>
+                        <span class="${level.color} text-sm">${level.value?.toFixed(2)}</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function displayOIAnalysis(stock) {
+            const container = document.getElementById('oiAnalysis');
+            
+            const interpColor = stock.oi_interpretation?.includes('LONG_BUILDUP') || stock.oi_interpretation?.includes('SHORT_COVERING') 
+                ? 'text-emerald-400' : 'text-red-400';
+
+            container.innerHTML = `
+                <div class="bg-slate-800/50 rounded-lg p-3 mb-3">
+                    <p class="text-xs text-slate-500">OI Interpretation</p>
+                    <p class="${interpColor} font-semibold">${stock.oi_interpretation?.replace('_', ' ')}</p>
+                    <p class="text-xs text-slate-400 mt-1">${stock.oi_signal}</p>
+                </div>
+                <div class="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                        <p class="text-slate-500">PCR</p>
+                        <p class="${stock.pcr > 1 ? 'text-emerald-400' : stock.pcr < 0.8 ? 'text-red-400' : 'text-white'} font-medium">${stock.pcr}</p>
+                    </div>
+                    <div>
+                        <p class="text-slate-500">Max Pain</p>
+                        <p class="font-medium">${stock.max_pain?.toLocaleString()}</p>
+                    </div>
+                    <div>
+                        <p class="text-slate-500">Support (Max Put OI)</p>
+                        <p class="text-emerald-400 font-medium">${stock.support_strike?.toLocaleString()}</p>
+                    </div>
+                    <div>
+                        <p class="text-slate-500">Resistance (Max Call OI)</p>
+                        <p class="text-red-400 font-medium">${stock.resistance_strike?.toLocaleString()}</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        function displayGannLevels(gann, currentPrice) {
+            const container = document.getElementById('gannLevels');
+            if (!gann.resistance || !gann.support) {
+                container.innerHTML = '<p class="text-slate-500">Gann levels unavailable</p>';
+                return;
+            }
+
+            const nearestRes = gann.resistance.find(r => r > currentPrice) || gann.resistance[0];
+            const nearestSup = gann.support.find(s => s < currentPrice) || gann.support[0];
+
+            container.innerHTML = `
+                <div class="mb-3">
+                    <p class="text-xs text-slate-500 mb-2">Resistance Levels</p>
+                    <div class="flex flex-wrap gap-2">
+                        ${gann.resistance.map(r => `
+                            <span class="px-2 py-1 rounded text-xs ${r === nearestRes ? 'bg-red-500/30 text-red-400' : 'bg-slate-700 text-slate-400'}">${r}</span>
+                        `).join('')}
+                    </div>
+                </div>
+                <div>
+                    <p class="text-xs text-slate-500 mb-2">Support Levels</p>
+                    <div class="flex flex-wrap gap-2">
+                        ${gann.support.map(s => `
+                            <span class="px-2 py-1 rounded text-xs ${s === nearestSup ? 'bg-emerald-500/30 text-emerald-400' : 'bg-slate-700 text-slate-400'}">${s}</span>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        function displayIVRange(stock) {
+            const container = document.getElementById('ivRange');
+            
+            container.innerHTML = `
+                <div class="grid grid-cols-3 gap-3 text-center mb-3">
+                    <div class="bg-emerald-500/10 rounded-lg p-3">
+                        <p class="text-xs text-slate-500">IV Low</p>
+                        <p class="text-emerald-400 font-semibold">${stock.iv_range_low?.toFixed(2)}</p>
+                    </div>
+                    <div class="bg-slate-700/50 rounded-lg p-3">
+                        <p class="text-xs text-slate-500">Current</p>
+                        <p class="text-white font-semibold">${stock.current_price?.toFixed(2)}</p>
+                    </div>
+                    <div class="bg-red-500/10 rounded-lg p-3">
+                        <p class="text-xs text-slate-500">IV High</p>
+                        <p class="text-red-400 font-semibold">${stock.iv_range_high?.toFixed(2)}</p>
+                    </div>
+                </div>
+                <div class="bg-slate-800/50 rounded-lg p-3">
+                    <div class="flex justify-between text-sm">
+                        <span class="text-slate-400">ATM IV</span>
+                        <span>${stock.atm_iv}%</span>
+                    </div>
+                    <div class="flex justify-between text-sm mt-1">
+                        <span class="text-slate-400">Daily Range</span>
+                        <span>±${stock.daily_iv_range?.toFixed(2)}</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        function displayVWAP(stock) {
+            const container = document.getElementById('vwapVolume');
+            const vwapColor = stock.price_vs_vwap === 'ABOVE' ? 'text-emerald-400' : 'text-red-400';
+
+            container.innerHTML = `
+                <div class="grid grid-cols-2 gap-3 mb-3">
+                    <div class="bg-slate-800/50 rounded-lg p-3">
+                        <p class="text-xs text-slate-500">VWAP</p>
+                        <p class="font-semibold">${stock.vwap_estimate?.toFixed(2)}</p>
+                    </div>
+                    <div class="bg-slate-800/50 rounded-lg p-3">
+                        <p class="text-xs text-slate-500">Price vs VWAP</p>
+                        <p class="${vwapColor} font-semibold">${stock.price_vs_vwap}</p>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="bg-slate-800/50 rounded-lg p-3">
+                        <p class="text-xs text-slate-500">Volume</p>
+                        <p class="font-semibold">${(stock.volume / 100000).toFixed(2)}L</p>
+                    </div>
+                    <div class="bg-slate-800/50 rounded-lg p-3">
+                        <p class="text-xs text-slate-500">Delivery %</p>
+                        <p class="${stock.delivery_percent >= 50 ? 'text-emerald-400' : 'text-yellow-400'} font-semibold">${stock.delivery_percent}%</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        // AI Functions
+        async function getAutoAIRecommendation(data) {
+            const card = document.getElementById('aiRecommendationCard');
+            const loading = document.getElementById('aiRecommendationLoading');
+            const content = document.getElementById('aiRecommendationContent');
+            const badge = document.getElementById('aiRecommendationBadge');
+            
+            // Show the card with loading state
+            card.classList.remove('hidden');
+            loading.classList.remove('hidden');
+            content.classList.add('hidden');
+            document.getElementById('aiModelUsed').textContent = config.groqModel;
+
+            const stock = data.stock_analysis?.data || {};
+            const prediction = data.prediction || {};
+            const market = data.market_overview?.data || {};
+            const fii = data.fii_dii?.data || {};
+            const checklist = prediction.checklist || [];
+
+            const prompt = `You are an expert Indian stock market trader. Analyze this data for ${data.symbol} and give me a CLEAR, ACTIONABLE trading recommendation.
+
+**CURRENT DATA:**
+- Symbol: ${data.symbol}
+- Current Price: ₹${stock.current_price}
+- Today's Change: ${stock.price_change_pct?.toFixed(2)}%
+- Today's Range: ₹${stock.today_low} - ₹${stock.today_high}
+- Previous Close: ₹${stock.prev_close}
+
+**TECHNICAL ANALYSIS:**
+- System Prediction: ${prediction.prediction} (${prediction.confidence}% confidence)
+- Bullish Score: ${prediction.bullish_score} | Bearish Score: ${prediction.bearish_score}
+- Checklist: ${prediction.checklist_passes}/${prediction.checklist_passes + prediction.checklist_fails} PASS
+
+**OPTIONS DATA:**
+- PCR (Put-Call Ratio): ${stock.pcr}
+- Max Pain Strike: ₹${stock.max_pain}
+- Max Put OI (Support): ₹${stock.support_strike}
+- Max Call OI (Resistance): ₹${stock.resistance_strike}
+- OI Interpretation: ${stock.oi_interpretation}
+- ATM IV: ${stock.atm_iv}%
+
+**PRICE LEVELS:**
+- CPR: Pivot ₹${stock.cpr?.pivot?.toFixed(2)}, TC ₹${stock.cpr?.tc?.toFixed(2)}, BC ₹${stock.cpr?.bc?.toFixed(2)}
+- S1: ₹${stock.cpr?.s1?.toFixed(2)}, S2: ₹${stock.cpr?.s2?.toFixed(2)}, S3: ₹${stock.cpr?.s3?.toFixed(2)}
+- R1: ₹${stock.cpr?.r1?.toFixed(2)}, R2: ₹${stock.cpr?.r2?.toFixed(2)}, R3: ₹${stock.cpr?.r3?.toFixed(2)}
+- VWAP: ₹${stock.vwap_estimate?.toFixed(2)} (Price is ${stock.price_vs_vwap})
+- IV Range: ₹${stock.iv_range_low?.toFixed(2)} - ₹${stock.iv_range_high?.toFixed(2)}
+
+**MARKET CONTEXT:**
+- Nifty: ${market.nifty_close} (${market.change_pct?.toFixed(2)}%)
+- Market Gap: ${market.gap_type} (${market.gap_points?.toFixed(0)} pts)
+- FII Bias: ${fii.fii_bias} (Long Ratio: ${fii.fii_long_ratio?.toFixed(1)}%)
+- Delivery %: ${stock.delivery_percent}%
+
+**CHECKLIST ITEMS:**
+${checklist.map(c => `- ${c.factor}: ${c.status} - ${c.value}`).join('\n')}
+
+Based on ALL this data, provide your recommendation in this EXACT JSON format (no other text, just JSON):
+{
+  "verdict": "BUY" or "SELL" or "AVOID",
+  "confidence": "HIGH" or "MEDIUM" or "LOW",
+  "summary": "2-3 sentence summary of why",
+  "entry_price": "exact price number or 'MARKET' or 'WAIT FOR DIP'",
+  "entry_note": "when/how to enter",
+  "stoploss": "exact price number",
+  "stoploss_note": "why this level",
+  "target1": "first target price",
+  "target2": "second target price (optional)",
+  "target_note": "expected timeline or condition",
+  "risk_reward": "ratio like 1:2",
+  "key_risks": ["risk1", "risk2"],
+  "detailed_reasoning": "4-5 sentences explaining your analysis"
+}`;
+
+            // Inform: use server-side proxy if there's no client-side GROQ API Key
+            if (!config.groqApiKey || config.groqApiKey.trim() === '') {
+                showAIError('Using server-side proxy (/api/ai/chat) as no client-side GROQ key was provided.');
+            } else {
+                showAIError('');
+            }
+
+            try {
+                const result = await callAI({
+                    model: config.groqModel,
+                    messages: [{ role: 'user', content: prompt }],
+                    temperature: 0.3,
+                    max_tokens: 1000
+                });
+                
+                if (result.error) {
+                    throw new Error(result.error.message);
+                }
+
+                const aiText = result.choices[0].message.content;
+                
+                // Parse JSON from response
+                let aiData;
+                try {
+                    // Try to extract JSON from the response
+                    const jsonMatch = aiText.match(/\{[\s\S]*\}/);
+                    if (jsonMatch) {
+                        aiData = JSON.parse(jsonMatch[0]);
+                    } else {
+                        throw new Error('No JSON found');
+                    }
+                } catch (e) {
+                    // Fallback: display raw response
+                    loading.classList.add('hidden');
+                    content.classList.remove('hidden');
+                    document.getElementById('aiQuickVerdict').innerHTML = `<div class="prose prose-invert prose-sm">${formatAIResponse(aiText)}</div>`;
+                    document.getElementById('aiEntryBox').classList.add('hidden');
+                    document.getElementById('aiStoplossBox').classList.add('hidden');
+                    document.getElementById('aiTargetBox').classList.add('hidden');
+                    document.getElementById('aiDetailedAnalysis').classList.add('hidden');
+                    return;
+                }
+
+                // Display parsed AI recommendation
+                loading.classList.add('hidden');
+                content.classList.remove('hidden');
+
+                // Update badge
+                if (aiData.verdict === 'BUY') {
+                    badge.textContent = '🟢 BUY';
+                    badge.className = 'ml-auto px-4 py-2 rounded-lg font-bold text-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/50';
+                    card.className = 'card rounded-xl p-6 mb-6 border-2 border-emerald-500/50 glow-green';
+                } else if (aiData.verdict === 'SELL') {
+                    badge.textContent = '🔴 SELL';
+                    badge.className = 'ml-auto px-4 py-2 rounded-lg font-bold text-lg bg-red-500/20 text-red-400 border border-red-500/50';
+                    card.className = 'card rounded-xl p-6 mb-6 border-2 border-red-500/50 glow-red';
+                } else {
+                    badge.textContent = '🟡 AVOID';
+                    badge.className = 'ml-auto px-4 py-2 rounded-lg font-bold text-lg bg-yellow-500/20 text-yellow-400 border border-yellow-500/50';
+                    card.className = 'card rounded-xl p-6 mb-6 border-2 border-yellow-500/50 glow-yellow';
+                }
+
+                // Quick verdict
+                document.getElementById('aiQuickVerdict').innerHTML = `
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="text-xs px-2 py-1 rounded ${aiData.confidence === 'HIGH' ? 'bg-emerald-500/20 text-emerald-400' : aiData.confidence === 'MEDIUM' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-red-500/20 text-red-400'}">Confidence: ${aiData.confidence}</span>
+                        <span class="text-xs px-2 py-1 rounded bg-slate-700 text-slate-300">R:R ${aiData.risk_reward || 'N/A'}</span>
+                    </div>
+                    <p class="text-lg">${aiData.summary}</p>
+                `;
+
+                // Entry, Stoploss, Target
+                document.getElementById('aiEntryBox').classList.remove('hidden');
+                document.getElementById('aiStoplossBox').classList.remove('hidden');
+                document.getElementById('aiTargetBox').classList.remove('hidden');
+                document.getElementById('aiDetailedAnalysis').classList.remove('hidden');
+
+                document.getElementById('aiEntryPrice').textContent = aiData.entry_price?.toString().startsWith('₹') ? aiData.entry_price : `₹${aiData.entry_price}`;
+                document.getElementById('aiEntryNote').textContent = aiData.entry_note || '';
+                document.getElementById('aiStoploss').textContent = aiData.stoploss?.toString().startsWith('₹') ? aiData.stoploss : `₹${aiData.stoploss}`;
+                document.getElementById('aiStoplossNote').textContent = aiData.stoploss_note || '';
+                
+                let targetText = aiData.target1?.toString().startsWith('₹') ? aiData.target1 : `₹${aiData.target1}`;
+                if (aiData.target2) {
+                    targetText += ` / ₹${aiData.target2}`;
+                }
+                document.getElementById('aiTarget').textContent = targetText;
+                document.getElementById('aiTargetNote').textContent = aiData.target_note || '';
+
+                // Detailed analysis
+                const risksHtml = aiData.key_risks ? `<div class="mt-3"><p class="text-xs text-slate-500 uppercase mb-1">Key Risks:</p><ul class="text-red-400 text-sm">${aiData.key_risks.map(r => `<li>⚠️ ${r}</li>`).join('')}</ul></div>` : '';
+                document.getElementById('aiDetailedAnalysis').innerHTML = `
+                    <p class="text-slate-300">${aiData.detailed_reasoning}</p>
+                    ${risksHtml}
+                `;
+
+            } catch (error) {
+                // Show a helpful banner for authentication / invalid key errors
+                const msg = error && error.message ? error.message : '';
+                if (msg.toLowerCase().includes('invalid') || msg.indexOf('401') !== -1 || msg.indexOf('403') !== -1) {
+                    showAIError('Invalid API Key - please update your key in Settings.');
+                } else {
+                    showAIError(msg || 'Unknown AI error');
+                }
+
+                loading.classList.add('hidden');
+                content.classList.remove('hidden');
+                document.getElementById('aiQuickVerdict').innerHTML = `
+                    <div class="text-red-400">
+                        <i class="fas fa-exclamation-triangle mr-2"></i>
+                        AI Error: ${msg || 'Unable to fetch AI recommendation.'}
+                        <br><br>
+                        <button onclick="getAutoAIRecommendation(currentAnalysis)" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm">Retry</button>
+                    </div>
+                `;
+                document.getElementById('aiEntryBox').classList.add('hidden');
+                document.getElementById('aiStoplossBox').classList.add('hidden');
+                document.getElementById('aiTargetBox').classList.add('hidden');
+                document.getElementById('aiDetailedAnalysis').classList.add('hidden');
+            }
+        }
+
+        async function getAIAnalysis() {
+            if (!currentAnalysis) {
+                alert('Please analyze a stock first');
+                return;
+            }
+
+            const messagesContainer = document.getElementById('aiMessages');
+            messagesContainer.innerHTML = `
+                <div class="flex items-center gap-3 text-slate-400">
+                    <div class="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+                    <span>Generating AI analysis...</span>
+                </div>
+            `;
+
+            const stock = currentAnalysis.stock_analysis?.data || {};
+            const prediction = currentAnalysis.prediction || {};
+            const market = currentAnalysis.market_overview?.data || {};
+            const fii = currentAnalysis.fii_dii?.data || {};
+
+            const prompt = `You are an expert stock market analyst. Analyze the following data for ${currentAnalysis.symbol} and provide a clear, actionable analysis.
+
+**Price Data:**
+- Current Price: ₹${stock.current_price}
+- Change: ${stock.price_change_pct}%
+- Today's Range: ₹${stock.today_low} - ₹${stock.today_high}
+
+**Prediction System Output:**
+- Prediction: ${prediction.prediction}
+- Confidence: ${prediction.confidence}%
+- Action: ${prediction.action}
+- Bullish Score: ${prediction.bullish_score}, Bearish Score: ${prediction.bearish_score}
+
+**Key Indicators:**
+- PCR: ${stock.pcr}
+- OI Interpretation: ${stock.oi_interpretation}
+- Support (Max Put OI): ${stock.support_strike}
+- Resistance (Max Call OI): ${stock.resistance_strike}
+- Max Pain: ${stock.max_pain}
+- Delivery %: ${stock.delivery_percent}%
+- VWAP: ${stock.vwap_estimate} (Price ${stock.price_vs_vwap})
+
+**FII Activity:**
+- Bias: ${fii.fii_bias}
+- Long Ratio: ${fii.fii_long_ratio}%
+
+**Market Context:**
+- Nifty: ${market.nifty_close} (${market.change_pct}%)
+- CPR Type: ${market.cpr_type}
+
+Provide:
+1. A brief summary (2-3 sentences)
+2. Key levels to watch (entry, stop-loss, targets)
+3. Risk assessment
+4. Your final recommendation
+
+Be concise and actionable.`;
+
+            try {
+                const data = await callAI({
+                    model: config.groqModel,
+                    messages: [{ role: 'user', content: prompt }],
+                    temperature: 0.7,
+                    max_tokens: 1000
+                });
+                
+                if (data.error) {
+                    throw new Error(data.error.message);
+                }
+
+                const aiResponse = data.choices[0].message.content;
+                messagesContainer.innerHTML = `
+                    <div class="prose prose-invert prose-sm max-w-none">
+                        ${formatAIResponse(aiResponse)}
+                    </div>
+                `;
+
+            } catch (error) {
+                messagesContainer.innerHTML = `
+                    <div class="text-red-400">
+                        <i class="fas fa-exclamation-triangle mr-2"></i>
+                        Error: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        async function askAI() {
+            const question = document.getElementById('aiQuestion').value.trim();
+            if (!question) return;
+
+            const messagesContainer = document.getElementById('aiMessages');
+            
+            // Add user message
+            messagesContainer.innerHTML += `
+                <div class="bg-slate-700/50 rounded-lg p-3 mb-3">
+                    <p class="text-xs text-slate-500 mb-1"><i class="fas fa-user mr-1"></i>You</p>
+                    <p>${question}</p>
+                </div>
+                <div class="flex items-center gap-3 text-slate-400 mb-3" id="aiTyping">
+                    <div class="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+                    <span>AI is thinking...</span>
+                </div>
+            `;
+
+            document.getElementById('aiQuestion').value = '';
+
+            const contextPrompt = currentAnalysis ? `
+Context about ${currentAnalysis.symbol}:
+- Price: ₹${currentAnalysis.stock_analysis?.data?.current_price}
+- Prediction: ${currentAnalysis.prediction?.prediction}
+- PCR: ${currentAnalysis.stock_analysis?.data?.pcr}
+- Support: ${currentAnalysis.stock_analysis?.data?.support_strike}
+- Resistance: ${currentAnalysis.stock_analysis?.data?.resistance_strike}
+
+User Question: ${question}
+
+Answer concisely as a stock market expert.` : question;
+
+            // Inform: attempt to use server-side proxy if client-side key missing
+            if (!config.groqApiKey || config.groqApiKey.trim() === '') {
+                showAIError('Using server-side proxy (/api/ai/chat) as no client-side GROQ key was provided.');
+            } else {
+                showAIError('');
+            }
+
+            try {
+                const data = await callAI({
+                    model: config.groqModel,
+                    messages: [{ role: 'user', content: contextPrompt }],
+                    temperature: 0.7,
+                    max_tokens: 500
+                });
+                document.getElementById('aiTyping')?.remove();
+
+                if (data.error) {
+                    throw new Error(data.error.message);
+                }
+
+                const aiResponse = data.choices[0].message.content;
+                messagesContainer.innerHTML += `
+                    <div class="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3 mb-3">
+                        <p class="text-xs text-emerald-400 mb-1"><i class="fas fa-robot mr-1"></i>AI</p>
+                        <div class="prose prose-invert prose-sm max-w-none">
+                            ${formatAIResponse(aiResponse)}
+                        </div>
+                    </div>
+                `;
+
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+            } catch (error) {
+                document.getElementById('aiTyping')?.remove();
+                messagesContainer.innerHTML += `
+                    <div class="text-red-400 mb-3">
+                        <i class="fas fa-exclamation-triangle mr-2"></i>
+                        Error: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        function formatAIResponse(text) {
+            // Convert markdown-like formatting to HTML
+            return text
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                .replace(/#{3}\s?(.*?)$/gm, '<h4 class="text-emerald-400 font-semibold mt-3 mb-1">$1</h4>')
+                .replace(/#{2}\s?(.*?)$/gm, '<h3 class="text-emerald-400 font-semibold mt-3 mb-1">$1</h3>')
+                .replace(/#{1}\s?(.*?)$/gm, '<h2 class="text-emerald-400 font-semibold mt-3 mb-1">$1</h2>')
+                .replace(/^-\s?(.*?)$/gm, '<li>$1</li>')
+                .replace(/(<li>.*<\/li>)/s, '<ul class="list-disc ml-4 space-y-1">$1</ul>')
+                .replace(/\n/g, '<br>');
+        }
+    </script>
+</body>
+</html>
