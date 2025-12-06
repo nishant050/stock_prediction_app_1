@@ -99,6 +99,33 @@
         .clickable-header:hover::after {
             opacity: 1;
         }
+
+        /* AI explain modal typography */
+        .ai-explain {
+            background: linear-gradient(180deg, rgba(15,23,42,0.9) 0%, rgba(15,23,42,0.7) 100%);
+            border: 1px solid rgba(148,163,184,0.3);
+            border-radius: 12px;
+            padding: 14px;
+        }
+        .ai-explain h3 { color: #e2e8f0; font-size: 1rem; font-weight: 700; margin-bottom: 6px; }
+        .ai-explain h4 { color: #a5b4fc; font-size: 0.95rem; font-weight: 700; margin-top: 10px; margin-bottom: 4px; }
+        .ai-explain p { color: #cbd5e1; line-height: 1.5; margin-bottom: 8px; }
+        .ai-explain ul { margin: 0 0 8px 16px; color: #cbd5e1; list-style: disc; }
+        .ai-explain li { margin-bottom: 4px; }
+        .ai-explain .badge { display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 11px; font-weight: 700; }
+        .ai-explain .badge-green { background: rgba(52, 211, 153, 0.15); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.4); }
+        .ai-explain .badge-red { background: rgba(248, 113, 113, 0.15); color: #f87171; border: 1px solid rgba(248, 113, 113, 0.4); }
+        .ai-explain .badge-amber { background: rgba(251, 191, 36, 0.12); color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.35); }
+        .ai-explain .kv { display: grid; grid-template-columns: 1fr auto; gap: 6px; font-size: 0.9rem; }
+        .ai-explain .kv-label { color: #94a3b8; }
+        .ai-explain .kv-value { color: #e2e8f0; font-weight: 600; }
+        .ai-explain code { background: rgba(148, 163, 184, 0.12); color: #e2e8f0; padding: 2px 6px; border-radius: 6px; font-size: 0.9em; }
+        .ai-explain pre { background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(148,163,184,0.25); color: #e2e8f0; padding: 12px; border-radius: 10px; overflow-x: auto; font-size: 0.9em; margin: 10px 0; }
+        .ai-explain blockquote { border-left: 3px solid rgba(52, 211, 153, 0.45); padding-left: 10px; margin: 8px 0; color: #cbd5e1; background: rgba(52,211,153,0.05); border-radius: 6px; }
+        .ai-explain ul, .ai-explain ol { padding-left: 20px; }
+        .ai-explain table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+        .ai-explain th, .ai-explain td { border: 1px solid rgba(148,163,184,0.3); padding: 8px; text-align: left; }
+        .ai-explain th { background: rgba(52, 211, 153, 0.08); color: #e2e8f0; }
     </style>
 </head>
 <body class="gradient-bg min-h-screen text-gray-100">
@@ -558,13 +585,17 @@
                 
                 <div>
                     <label class="block text-sm text-slate-400 mb-2">AI Model</label>
-                    <select id="groqModel" 
-                        class="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500">
-                        <option value="llama-3.3-70b-versatile">Llama 3.3 70B (Best)</option>
-                        <option value="llama-3.1-8b-instant">Llama 3.1 8B (Fast)</option>
-                        <option value="mixtral-8x7b-32768">Mixtral 8x7B</option>
-                        <option value="gemma2-9b-it">Gemma 2 9B</option>
-                    </select>
+                    <div class="space-y-2">
+                        <select id="groqModel" 
+                            class="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500">
+                        </select>
+                        <div class="flex gap-2">
+                            <input id="customModelInput" type="text" placeholder="Add custom model id (e.g., openai/gpt-oss-120b)" 
+                                class="flex-1 bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500">
+                            <button onclick="addCustomModel()" class="px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm">Add</button>
+                        </div>
+                        <div id="customModelChips" class="flex flex-wrap gap-2"></div>
+                    </div>
                 </div>
                 
                 <div>
@@ -629,6 +660,18 @@
         // Use server proxy by default. Set to false if you want the browser to call Groq directly (not recommended).
         config.useServerProxy = localStorage.getItem('useServerProxy') !== 'false';
 
+        const defaultModels = [
+            { id: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B (Best)' },
+            { id: 'llama-3.1-8b-instant', label: 'Llama 3.1 8B (Fast)' },
+            { id: 'mixtral-8x7b-32768', label: 'Mixtral 8x7B' },
+            { id: 'gemma2-9b-it', label: 'Gemma 2 9B' }
+        ];
+        let customModels = [];
+
+        const groqModelSelect = document.getElementById('groqModel');
+        const customModelInput = document.getElementById('customModelInput');
+        const customModelChips = document.getElementById('customModelChips');
+
         let currentAnalysis = null;
         let todaysPicksData = null;
         let activeSectorFilter = null;
@@ -643,6 +686,114 @@
                 seen.add(sym);
                 return true;
             });
+        }
+
+        function loadCustomModelsFromStorage() {
+            try {
+                const raw = localStorage.getItem('customModels');
+                if (!raw) return [];
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed)) return parsed.map(m => String(m).trim()).filter(Boolean);
+            } catch (e) {
+                console.warn('Failed to parse custom models from storage', e);
+            }
+            return [];
+        }
+
+        function persistCustomModels() {
+            localStorage.setItem('customModels', JSON.stringify(customModels));
+        }
+
+        function renderCustomModelChips() {
+            if (!customModelChips) return;
+            customModelChips.innerHTML = '';
+
+            if (!customModels.length) {
+                const hint = document.createElement('p');
+                hint.className = 'text-xs text-slate-500';
+                hint.textContent = 'Add a custom model id to use it.';
+                customModelChips.appendChild(hint);
+                return;
+            }
+
+            customModels.forEach(modelId => {
+                const chip = document.createElement('div');
+                chip.className = 'inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-700 text-slate-200 text-xs border border-slate-500';
+
+                const label = document.createElement('span');
+                label.className = 'font-semibold';
+                label.textContent = modelId;
+
+                const removeBtn = document.createElement('button');
+                removeBtn.className = 'text-slate-300 hover:text-white';
+                removeBtn.setAttribute('aria-label', `Remove ${modelId}`);
+                removeBtn.textContent = '×';
+                removeBtn.addEventListener('click', () => removeCustomModel(modelId));
+
+                chip.appendChild(label);
+                chip.appendChild(removeBtn);
+                customModelChips.appendChild(chip);
+            });
+        }
+
+        function renderGroqModelOptions(selectedModel = config.groqModel) {
+            if (!groqModelSelect) return;
+
+            const combined = [...defaultModels, ...customModels.map(id => ({ id, label: id }))];
+            const seen = new Set();
+            groqModelSelect.innerHTML = '';
+
+            combined.forEach(model => {
+                if (!model.id || seen.has(model.id)) return;
+                seen.add(model.id);
+                const option = document.createElement('option');
+                option.value = model.id;
+                option.textContent = model.label || model.id;
+                groqModelSelect.appendChild(option);
+            });
+
+            if (selectedModel && !seen.has(selectedModel)) {
+                const option = document.createElement('option');
+                option.value = selectedModel;
+                option.textContent = `${selectedModel} (custom)`;
+                groqModelSelect.appendChild(option);
+            }
+
+            const hasSelection = Array.from(groqModelSelect.options).some(opt => opt.value === selectedModel);
+            if (hasSelection) {
+                groqModelSelect.value = selectedModel;
+            } else if (groqModelSelect.options.length) {
+                groqModelSelect.value = groqModelSelect.options[0].value;
+                selectedModel = groqModelSelect.value;
+            }
+
+        }
+
+        function addCustomModel() {
+            const modelId = (customModelInput?.value || '').trim();
+            if (!modelId) return;
+
+            if (defaultModels.some(m => m.id === modelId) || customModels.includes(modelId)) {
+                renderGroqModelOptions(modelId);
+                customModelInput.value = '';
+                return;
+            }
+
+            customModels.push(modelId);
+            persistCustomModels();
+            renderCustomModelChips();
+            renderGroqModelOptions(modelId);
+            customModelInput.value = '';
+        }
+
+        function removeCustomModel(modelId) {
+            if (!modelId) return;
+            customModels = customModels.filter(m => m !== modelId);
+            persistCustomModels();
+            const fallbackModel = config.groqModel === modelId ? (defaultModels[0]?.id || customModels[0] || '') : config.groqModel;
+            renderCustomModelChips();
+            renderGroqModelOptions(fallbackModel);
+            config.groqModel = fallbackModel || config.groqModel;
         }
 
         function applySectorFilter(list) {
@@ -664,9 +815,32 @@
             chip.classList.remove('hidden');
         }
 
+        function wireExplainTargets() {
+            const explainTargets = [
+                { id: 'marketOverview', section: 'marketOverview' },
+                { id: 'fiiDiiData', section: 'fiiDii' },
+                { id: 'cprLevels', section: 'cpr' },
+                { id: 'oiAnalysis', section: 'oi' },
+                { id: 'gannLevels', section: 'gann' },
+                { id: 'ivRange', section: 'ivRange' },
+                { id: 'vwapVolume', section: 'vwap' }
+            ];
+
+            explainTargets.forEach(target => {
+                const el = document.getElementById(target.id);
+                if (!el) return;
+                el.classList.add('cursor-pointer');
+                el.addEventListener('click', (e) => {
+                    if (e.target.closest('button, a, input, select, textarea, label')) return;
+                    explainSection(target.section);
+                });
+            });
+        }
+
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
             loadSettings();
+            wireExplainTargets();
             checkServerStatus();
             loadTodaysPicks(); // Auto-load today's picks on page load
         });
@@ -1044,15 +1218,21 @@
         }
 
         function loadSettings() {
+            customModels = loadCustomModelsFromStorage();
+            renderGroqModelOptions(config.groqModel);
+            renderCustomModelChips();
+            if (customModelInput) customModelInput.value = '';
+
             document.getElementById('groqApiKey').value = config.groqApiKey;
-            document.getElementById('groqModel').value = config.groqModel;
+            if (groqModelSelect) groqModelSelect.value = config.groqModel;
+            if (groqModelSelect && groqModelSelect.value) config.groqModel = groqModelSelect.value;
             document.getElementById('backendUrl').value = config.backendUrl;
             document.getElementById('useServerProxy').checked = config.useServerProxy;
         }
 
         function saveSettings() {
             config.groqApiKey = document.getElementById('groqApiKey').value;
-            config.groqModel = document.getElementById('groqModel').value;
+            config.groqModel = groqModelSelect ? groqModelSelect.value : config.groqModel;
             config.backendUrl = document.getElementById('backendUrl').value;
             config.useServerProxy = document.getElementById('useServerProxy').checked;
             
@@ -1066,6 +1246,7 @@
         }
 
         function openSettings() {
+            loadSettings();
             document.getElementById('settingsModal').classList.remove('hidden');
         }
 
@@ -1376,23 +1557,88 @@ Base predictions on technical levels, IV-implied move, and trend direction. Be r
             document.getElementById('aiExplainModal').classList.add('hidden');
         }
 
-        async function explainSection(section) {
+        function setAiExplainLoading(titleText) {
             const modal = document.getElementById('aiExplainModal');
             const title = document.getElementById('aiExplainTitle');
             const content = document.getElementById('aiExplainContent');
-            
-            if (!currentAnalysis) {
-                alert('Please analyze a stock first');
-                return;
-            }
-
             modal.classList.remove('hidden');
+            title.textContent = titleText;
             content.innerHTML = `
                 <div class="flex items-center justify-center py-8">
                     <div class="w-6 h-6 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin mr-3"></div>
                     <span class="text-slate-400">AI is analyzing this section...</span>
                 </div>
             `;
+        }
+
+        function renderAiResponse(text) {
+            return `<div class="ai-explain">${formatAIResponse(text)}</div>`;
+        }
+
+        function safeStr(val) {
+            if (val === undefined || val === null) return '';
+            return String(val);
+        }
+
+        function explainChecklistItem(el) {
+            const factor = decodeURIComponent(el.dataset.factor || '');
+            const status = decodeURIComponent(el.dataset.status || '');
+            const value = decodeURIComponent(el.dataset.value || '');
+            const impact = decodeURIComponent(el.dataset.impact || '');
+            const weight = decodeURIComponent(el.dataset.weight || '');
+
+            setAiExplainLoading(`${factor} - Checklist`);
+
+            const prompt = `Explain the checklist factor "${factor}" for this stock. Include:\n- What this factor measures\n- Current status: ${status} (${impact})\n- Value/context: ${value}\n- Weight: ${weight} points\n- What the trader should do with this info (actionable guidance)\nBe concise, bullet the actions, and tie back to the stock's current setup.`;
+
+            callAI({
+                model: config.groqModel,
+                messages: [{ role: 'user', content: prompt }],
+                temperature: 0.5,
+                max_tokens: 600
+            }).then(res => {
+                const content = document.getElementById('aiExplainContent');
+                if (res.error) throw new Error(res.error.message || 'AI error');
+                const aiText = res.choices?.[0]?.message?.content || 'No response';
+                content.innerHTML = renderAiResponse(aiText);
+            }).catch(err => {
+                document.getElementById('aiExplainContent').innerHTML = `<div class="text-red-400"><i class="fas fa-exclamation-triangle mr-2"></i>${safeStr(err.message || err)}</div>`;
+            });
+        }
+
+        function explainMetric(kind, label, value, note) {
+            setAiExplainLoading(`${label} Explained`);
+            const stock = currentAnalysis?.stock_analysis?.data || {};
+            const contextLines = [
+                `Symbol: ${currentAnalysis?.symbol || ''}`,
+                `Value: ${value}`,
+                note ? `Note: ${note}` : ''
+            ].filter(Boolean).join('\n');
+
+            const prompt = `You are an expert trading coach. Explain the metric "${label}" for this stock.\n${contextLines}\nCover:\n- What it means and how to read it\n- Is the current value high/low/good/bad?\n- What action should a trader consider (entry/exit/risk)?\n- Any cautions or thresholds.\nBe clear, concise, and actionable.`;
+
+            callAI({
+                model: config.groqModel,
+                messages: [{ role: 'user', content: prompt }],
+                temperature: 0.45,
+                max_tokens: 500
+            }).then(res => {
+                const content = document.getElementById('aiExplainContent');
+                if (res.error) throw new Error(res.error.message || 'AI error');
+                const aiText = res.choices?.[0]?.message?.content || 'No response';
+                content.innerHTML = renderAiResponse(aiText);
+            }).catch(err => {
+                document.getElementById('aiExplainContent').innerHTML = `<div class="text-red-400"><i class="fas fa-exclamation-triangle mr-2"></i>${safeStr(err.message || err)}</div>`;
+            });
+        }
+
+        async function explainSection(section) {
+            if (!currentAnalysis) {
+                alert('Please analyze a stock first');
+                return;
+            }
+
+            setAiExplainLoading('AI Explanation');
 
             const stock = currentAnalysis.stock_analysis?.data || {};
             const prediction = currentAnalysis.prediction || {};
@@ -1503,18 +1749,7 @@ Gann Support: ${stock.gann?.support?.join(', ')}`;
                     sectionTitle = 'Explanation';
                     prompt = 'Explain this section.';
             }
-
-            title.textContent = sectionTitle;
-
-            // If user hasn't set a front-end GROQ key, we still continue and rely on server-side proxy.
-            if (!config.groqApiKey || config.groqApiKey.trim() === '') {
-                // Give informational hint to the user but continue
-                content.innerHTML = `
-                    <div class="text-yellow-300 p-4">
-                        <i class="fas fa-info-circle mr-2"></i>
-                        No client-side GROQ key set. Attempting to use server-side proxy `/api/ai/chat`.
-                    </div>`;
-            }
+            document.getElementById('aiExplainTitle').textContent = sectionTitle;
 
             try {
                 const result = await callAI({
@@ -1527,10 +1762,10 @@ Gann Support: ${stock.gann?.support?.join(', ')}`;
                 if (result.error) throw new Error(result.error.message);
 
                 const aiResponse = result.choices[0].message.content;
-                content.innerHTML = `<div class="prose prose-invert prose-sm max-w-none">${formatAIResponse(aiResponse)}</div>`;
+                document.getElementById('aiExplainContent').innerHTML = renderAiResponse(aiResponse);
 
             } catch (error) {
-                content.innerHTML = `<div class="text-red-400"><i class="fas fa-exclamation-triangle mr-2"></i>Error: ${error.message}</div>`;
+                document.getElementById('aiExplainContent').innerHTML = `<div class="text-red-400"><i class="fas fa-exclamation-triangle mr-2"></i>Error: ${error.message}</div>`;
             }
         }
 
@@ -1685,7 +1920,13 @@ Gann Support: ${stock.gann?.support?.join(', ')}`;
                 }
 
                 return `
-                    <div class="checklist-item ${bgColor} border rounded-lg p-3">
+                    <div class="checklist-item ${bgColor} border rounded-lg p-3 cursor-pointer" 
+                         data-factor="${encodeURIComponent(item.factor || '')}"
+                         data-status="${encodeURIComponent(item.status || '')}"
+                         data-impact="${encodeURIComponent(item.impact || '')}"
+                         data-value="${encodeURIComponent(item.value || '')}"
+                         data-weight="${encodeURIComponent(item.weight || '')}"
+                         onclick="explainChecklistItem(this)">
                         <div class="flex items-start gap-3">
                             <i class="fas ${statusIcon} ${statusColor} mt-0.5"></i>
                             <div class="flex-1 min-w-0">
@@ -1721,7 +1962,8 @@ Gann Support: ${stock.gann?.support?.join(', ')}`;
             container.innerHTML = levels.map(level => {
                 const isNearPrice = Math.abs(level.value - currentPrice) < currentPrice * 0.01;
                 return `
-                    <div class="flex justify-between items-center py-1 ${isNearPrice ? 'bg-slate-700/50 -mx-2 px-2 rounded' : ''}">
+                    <div class="flex justify-between items-center py-1 ${isNearPrice ? 'bg-slate-700/50 -mx-2 px-2 rounded' : ''} cursor-pointer"
+                         onclick="explainMetric('cpr','${level.label}','${level.value?.toFixed(2)}','CPR level for intraday reference')">
                         <span class="text-slate-400 text-sm">${level.label}</span>
                         <span class="${level.color} text-sm">${level.value?.toFixed(2)}</span>
                     </div>
@@ -1742,19 +1984,19 @@ Gann Support: ${stock.gann?.support?.join(', ')}`;
                     <p class="text-xs text-slate-400 mt-1">${stock.oi_signal}</p>
                 </div>
                 <div class="grid grid-cols-2 gap-3 text-sm">
-                    <div>
+                    <div class="cursor-pointer" onclick="explainMetric('oi','PCR','${stock.pcr}','Put-Call Ratio current value')">
                         <p class="text-slate-500">PCR</p>
                         <p class="${stock.pcr > 1 ? 'text-emerald-400' : stock.pcr < 0.8 ? 'text-red-400' : 'text-white'} font-medium">${stock.pcr}</p>
                     </div>
-                    <div>
+                    <div class="cursor-pointer" onclick="explainMetric('oi','Max Pain','${stock.max_pain?.toLocaleString()}','Option writers’ pain point')">
                         <p class="text-slate-500">Max Pain</p>
                         <p class="font-medium">${stock.max_pain?.toLocaleString()}</p>
                     </div>
-                    <div>
+                    <div class="cursor-pointer" onclick="explainMetric('oi','Support (Max Put OI)','${stock.support_strike?.toLocaleString()}','Highest put OI strike')">
                         <p class="text-slate-500">Support (Max Put OI)</p>
                         <p class="text-emerald-400 font-medium">${stock.support_strike?.toLocaleString()}</p>
                     </div>
-                    <div>
+                    <div class="cursor-pointer" onclick="explainMetric('oi','Resistance (Max Call OI)','${stock.resistance_strike?.toLocaleString()}','Highest call OI strike')">
                         <p class="text-slate-500">Resistance (Max Call OI)</p>
                         <p class="text-red-400 font-medium">${stock.resistance_strike?.toLocaleString()}</p>
                     </div>
@@ -2208,17 +2450,129 @@ Answer concisely as a stock market expert.` : question;
             }
         }
 
+        function escapeHtml(str) {
+            return safeStr(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/\"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function escapeAttr(str) {
+            return escapeHtml(str).replace(/`/g, '');
+        }
+
+        function formatInlineMarkdown(str) {
+            let out = escapeHtml(str);
+            out = out.replace(/`([^`]+)`/g, '<code>$1</code>');
+            out = out.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            out = out.replace(/__(.*?)__/g, '<strong>$1</strong>');
+            out = out.replace(/\*(.*?)\*/g, '<em>$1</em>');
+            out = out.replace(/_(.*?)_/g, '<em>$1</em>');
+            out = out.replace(/\[(.*?)\]\((https?:[^\s]+)\)/g, '<a href="$2" target="_blank" class="text-emerald-300 underline">$1</a>');
+            return out;
+        }
+
+        function markdownToHtml(mdText) {
+            const lines = safeStr(mdText).replace(/\r\n/g, '\n').split('\n');
+            let html = '';
+            let inUl = false;
+            let inOl = false;
+            let inPre = false;
+
+            const closeLists = () => {
+                if (inUl) { html += '</ul>'; inUl = false; }
+                if (inOl) { html += '</ol>'; inOl = false; }
+            };
+
+            for (let i = 0; i < lines.length; i++) {
+                const raw = lines[i];
+                const line = raw.trimEnd();
+
+                if (/^```/.test(line)) {
+                    if (inPre) {
+                        html += '</code></pre>';
+                        inPre = false;
+                    } else {
+                        closeLists();
+                        const lang = line.replace(/^```/, '').trim();
+                        html += `<pre><code class="language-${escapeAttr(lang)}">`;
+                        inPre = true;
+                    }
+                    continue;
+                }
+
+                if (inPre) {
+                    html += `${escapeHtml(raw)}\n`;
+                    continue;
+                }
+
+                if (!line) {
+                    closeLists();
+                    html += '';
+                    continue;
+                }
+
+                if (/^>\s?/.test(line)) {
+                    closeLists();
+                    html += `<blockquote>${formatInlineMarkdown(line.replace(/^>\s?/, ''))}</blockquote>`;
+                    continue;
+                }
+
+                if (/^[*-]\s+/.test(line)) {
+                    if (!inUl) { closeLists(); html += '<ul class="list-disc space-y-1">'; inUl = true; }
+                    html += `<li>${formatInlineMarkdown(line.replace(/^[*-]\s+/, ''))}</li>`;
+                    continue;
+                }
+
+                if (/^\d+\.\s+/.test(line)) {
+                    if (!inOl) { closeLists(); html += '<ol class="list-decimal space-y-1">'; inOl = true; }
+                    html += `<li>${formatInlineMarkdown(line.replace(/^\d+\.\s+/, ''))}</li>`;
+                    continue;
+                }
+
+                const headingMatch = line.match(/^(#{1,6})\s+(.*)$/);
+                if (headingMatch) {
+                    closeLists();
+                    const level = headingMatch[1].length;
+                    const content = formatInlineMarkdown(headingMatch[2]);
+                    html += `<h${level} class="text-emerald-300 font-semibold mt-3 mb-1">${content}</h${level}>`;
+                    continue;
+                }
+
+                // Simple table support: header row followed by separator
+                const next = lines[i + 1]?.trim?.();
+                if (line.includes('|') && next && /^\|?\s*:?[-=]{2,}/.test(next)) {
+                    closeLists();
+                    const headers = line.split('|').map(c => formatInlineMarkdown(c.trim())).filter(Boolean);
+                    const rows = [];
+                    i += 1; // skip separator
+                    while (i + 1 < lines.length && lines[i + 1].includes('|')) {
+                        const rowLine = lines[i + 1];
+                        const row = rowLine.split('|').map(c => formatInlineMarkdown(c.trim()));
+                        rows.push(row);
+                        i += 1;
+                    }
+                    html += '<table><thead><tr>' + headers.map(h => `<th>${h}</th>`).join('') + '</tr></thead>';
+                    if (rows.length) {
+                        html += '<tbody>' + rows.map(r => '<tr>' + r.map(c => `<td>${c}</td>`).join('') + '</tr>').join('') + '</tbody>';
+                    }
+                    html += '</table>';
+                    continue;
+                }
+
+                closeLists();
+                html += `<p>${formatInlineMarkdown(line)}</p>`;
+            }
+
+            if (inPre) html += '</code></pre>';
+            closeLists();
+            return html;
+        }
+
         function formatAIResponse(text) {
-            // Convert markdown-like formatting to HTML
-            return text
-                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                .replace(/#{3}\s?(.*?)$/gm, '<h4 class="text-emerald-400 font-semibold mt-3 mb-1">$1</h4>')
-                .replace(/#{2}\s?(.*?)$/gm, '<h3 class="text-emerald-400 font-semibold mt-3 mb-1">$1</h3>')
-                .replace(/#{1}\s?(.*?)$/gm, '<h2 class="text-emerald-400 font-semibold mt-3 mb-1">$1</h2>')
-                .replace(/^-\s?(.*?)$/gm, '<li>$1</li>')
-                .replace(/(<li>.*<\/li>)/s, '<ul class="list-disc ml-4 space-y-1">$1</ul>')
-                .replace(/\n/g, '<br>');
+            return markdownToHtml(text);
         }
     </script>
 </body>
